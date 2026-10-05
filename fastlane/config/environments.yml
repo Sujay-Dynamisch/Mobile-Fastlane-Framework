@@ -1,0 +1,382 @@
+# =============================================================================
+# Enterprise Mobile Distribution Framework Configuration
+# =============================================================================
+#
+# This file is PROJECT-SPECIFIC configuration. The Fastfile should normally
+# remain unchanged when onboarding another application.
+#
+# Never store secrets here. Use environment variables / CI secrets.
+#
+# Supported Android project modes:
+#   1. No product flavors:
+#        assembleRelease / bundleRelease
+#   2. Product flavors:
+#        assembleDevRelease / assembleStagingRelease / assembleProdRelease
+#   3. Custom enterprise variants:
+#        assembleInternalQaRelease / assembleClientARelease / etc.
+#
+# IMPORTANT:
+#   gradle_task is the source of truth. Do not make the framework guess custom
+#   Gradle task names.
+#
+# =============================================================================
+
+# (Optional) Project metadata is automatically inferred from app.json / package.json /
+# google-services.json and environment variables (APP_NAME, APP_ENV, etc.).
+# Specify overrides here only if you need custom values.
+project:
+  name: "MyApp"
+  identifier: "myapp"
+  organization: "Your Company"
+  default_environment: "development"
+
+# =============================================================================
+# ANDROID
+# =============================================================================
+android:
+  enabled: true
+  project_dir: "android"
+
+  # false for projects that only have Debug/Release style variants.
+  # true when the Android project defines product flavors.
+  use_flavors: false
+
+  build:
+    clean_before_build: false
+    # Extra flags passed to Gradle, e.g. "--no-daemon --stacktrace"
+    gradle_options: ""
+
+  environments:
+    development:
+      description: "Developer/internal Android distribution"
+
+      # ========================= NO-FLAVOR MODE =============================
+      gradle_task: "assembleRelease"
+      artifact:
+        type: "APK"
+        glob: "android/app/build/outputs/apk/release/*.apk"
+
+      # ========================= FLAVOR MODE ================================
+      # Enable for a project with a Dev flavor:
+      # flavor: "Dev"
+      # build_type: "Release"
+      # gradle_task: "assembleDevRelease"
+      # glob: "android/app/build/outputs/apk/dev/release/*.apk"
+
+      # For custom MNC/enterprise variants, always set the exact Gradle task:
+      # gradle_task: "assembleInternalDevQaRelease"
+
+      firebase:
+        enabled: true
+        app_id: "${FIREBASE_ANDROID_DEV_APP_ID}"
+        groups: "${FIREBASE_ANDROID_DEV_GROUPS}"
+        testers: ""
+      app_testing:
+        enabled: true
+
+      release_notes:
+        enabled: true
+        source: "git"
+        commit_count: 10
+
+      notifications:
+        teams:
+          enabled: true
+        slack:
+          enabled: false
+
+    staging:
+      description: "QA/staging Android distribution"
+
+      # ========================= NO-FLAVOR MODE =============================
+      gradle_task: "assembleRelease"
+      artifact:
+        type: "APK"
+        glob: "android/app/build/outputs/apk/release/*.apk"
+
+      # ========================= FLAVOR MODE ================================
+      # flavor: "Staging"
+      # build_type: "Release"
+      # gradle_task: "assembleStagingRelease"
+      # glob: "android/app/build/outputs/apk/staging/release/*.apk"
+
+      firebase:
+        enabled: true
+        app_id: "${FIREBASE_ANDROID_STAGING_APP_ID}"
+        groups: "${FIREBASE_ANDROID_STAGING_GROUPS}"
+        testers: ""
+      app_testing:
+        enabled: true
+
+      release_notes:
+        enabled: true
+        source: "git"
+        commit_count: 15
+
+      notifications:
+        teams:
+          enabled: true
+        slack:
+          enabled: false
+
+    uat:
+      description: "Business/UAT Android distribution"
+
+      # NO-FLAVOR MODE
+      gradle_task: "assembleRelease"
+      artifact:
+        type: "APK"
+        glob: "android/app/build/outputs/apk/release/*.apk"
+
+      # FLAVOR EXAMPLE
+      # flavor: "Uat"
+      # build_type: "Release"
+      # gradle_task: "assembleUatRelease"
+      # glob: "android/app/build/outputs/apk/uat/release/*.apk"
+
+      firebase:
+        enabled: true
+        app_id: "${FIREBASE_ANDROID_UAT_APP_ID}"
+        groups: "${FIREBASE_ANDROID_UAT_GROUPS}"
+        testers: ""
+      app_testing:
+        enabled: true
+
+      release_notes:
+        enabled: true
+        source: "git"
+        commit_count: 15
+
+      notifications:
+        teams:
+          enabled: true
+        slack:
+          enabled: false
+
+    production:
+      description: "Production Android release candidate/distribution"
+
+      # NO-FLAVOR APK MODE
+      gradle_task: "assembleRelease"
+      artifact:
+        type: "APK"
+        glob: "android/app/build/outputs/apk/release/*.apk"
+
+      # ========================= PRODUCTION AAB =============================
+      # For a no-flavor production App Bundle:
+      # gradle_task: "bundleRelease"
+      # artifact:
+      #   type: "AAB"
+      #   glob: "android/app/build/outputs/bundle/release/*.aab"
+      #
+      # For a flavor project:
+      # gradle_task: "bundleProdRelease"
+      # artifact:
+      #   type: "AAB"
+      #   glob: "android/app/build/outputs/bundle/prodRelease/*.aab"
+
+      firebase:
+        # Set false when production is handled by a separate Google Play lane.
+        enabled: true
+        app_id: "${FIREBASE_ANDROID_PROD_APP_ID}"
+        groups: "${FIREBASE_ANDROID_PROD_GROUPS}"
+        testers: ""
+      app_testing:
+        enabled: false
+
+      release_notes:
+        enabled: true
+        source: "git"
+        commit_count: 20
+
+      safety:
+        require_confirmation: true
+        require_ci: false
+        allowed_branches:
+          - "main"
+
+      notifications:
+        teams:
+          enabled: true
+        slack:
+          enabled: false
+
+# =============================================================================
+# IOS
+# =============================================================================
+# Set enabled: true only when an iOS/macOS environment is available.
+# =============================================================================
+ios:
+  enabled: false
+  project_dir: "ios"
+
+  build:
+    # Runs `pod install` before building (creates the .xcworkspace).
+    install_pods: true
+
+  signing:
+    # automatic: Xcode creates/downloads certificates and profiles using the
+    #            App Store Connect API key (no certificates repo needed).
+    # match:     certificates/profiles come from a private match Git repo.
+    method: "automatic"
+    team_id: "${APPLE_TEAM_ID}"
+    # match-only settings
+    type: "appstore"
+    readonly_in_ci: true
+    # match-only: switch the app target to manual signing with the match
+    # profile (edits project.pbxproj in the working copy during the build).
+    update_project_signing: false
+
+  environments:
+    development:
+      description: "Development iOS/TestFlight distribution"
+      workspace: "ios/MyApp.xcworkspace"
+      scheme: "MyApp"
+      bundle_identifier: "com.example.myapp"
+      export_method: "app-store"
+      versioning:
+        # Uses BUILD_NUMBER / GITHUB_RUN_NUMBER when set, otherwise latest TestFlight build + 1.
+        auto_increment_build_number: true
+      testflight:
+        enabled: true
+        groups: []
+        notify_external_testers: true
+        skip_waiting_for_build_processing: true
+      release_notes:
+        enabled: true
+        source: "git"
+        commit_count: 10
+      notifications:
+        teams:
+          enabled: true
+        slack:
+          enabled: false
+
+    staging:
+      description: "QA/staging iOS/TestFlight distribution"
+      workspace: "ios/MyApp.xcworkspace"
+      scheme: "MyApp"
+      bundle_identifier: "com.example.myapp"
+      # Flavor/scheme example:
+      # scheme: "MyApp-Staging"
+      # bundle_identifier: "com.example.myapp.staging"
+      export_method: "app-store"
+      versioning:
+        # Uses BUILD_NUMBER / GITHUB_RUN_NUMBER when set, otherwise latest TestFlight build + 1.
+        auto_increment_build_number: true
+      testflight:
+        enabled: true
+        groups: []
+        notify_external_testers: true
+        skip_waiting_for_build_processing: true
+      release_notes:
+        enabled: true
+        source: "git"
+        commit_count: 15
+      notifications:
+        teams:
+          enabled: true
+        slack:
+          enabled: false
+
+    uat:
+      description: "Business/UAT iOS/TestFlight distribution"
+      workspace: "ios/MyApp.xcworkspace"
+      scheme: "MyApp"
+      bundle_identifier: "com.example.myapp"
+      # scheme: "MyApp-UAT"
+      # bundle_identifier: "com.example.myapp.uat"
+      export_method: "app-store"
+      versioning:
+        # Uses BUILD_NUMBER / GITHUB_RUN_NUMBER when set, otherwise latest TestFlight build + 1.
+        auto_increment_build_number: true
+      testflight:
+        enabled: true
+        groups: []
+        notify_external_testers: true
+        skip_waiting_for_build_processing: true
+      release_notes:
+        enabled: true
+        source: "git"
+        commit_count: 15
+      notifications:
+        teams:
+          enabled: true
+        slack:
+          enabled: false
+
+    production:
+      description: "Production iOS/TestFlight release"
+      workspace: "ios/MyApp.xcworkspace"
+      scheme: "MyApp"
+      bundle_identifier: "com.example.myapp"
+      export_method: "app-store"
+      versioning:
+        # Uses BUILD_NUMBER / GITHUB_RUN_NUMBER when set, otherwise latest TestFlight build + 1.
+        auto_increment_build_number: true
+      testflight:
+        enabled: true
+        groups: []
+        notify_external_testers: true
+        skip_waiting_for_build_processing: true
+      release_notes:
+        enabled: true
+        source: "git"
+        commit_count: 20
+      safety:
+        require_confirmation: true
+        require_ci: false
+        allowed_branches:
+          - "main"
+      notifications:
+        teams:
+          enabled: true
+        slack:
+          enabled: false
+
+# =============================================================================
+# GLOBAL NOTIFICATIONS (release success/failure webhooks)
+# Test-report emails are configured in fastlane/config/testing.yml.
+# =============================================================================
+notifications:
+  teams:
+    enabled: true
+    webhook_url: "${TEAMS_WEBHOOK_URL}"
+
+  slack:
+    enabled: false
+    webhook_url: "${SLACK_WEBHOOK_URL}"
+
+# =============================================================================
+# GLOBAL RELEASE NOTES
+# =============================================================================
+release_notes:
+  enabled: true
+  source: "git"
+  commit_count: 10
+  prefix: "Automated Mobile Distribution"
+
+# =============================================================================
+# CI/CD
+# =============================================================================
+ci:
+  build:
+    # iOS: clean before archiving when running on CI (CI=true / GITHUB_ACTIONS=true).
+    clean_before_build: true
+
+# =============================================================================
+# SECURITY / POLICY
+# =============================================================================
+security:
+  # Default for environments whose safety block does not set require_ci.
+  production_requires_ci: false
+
+# =============================================================================
+# OPTIONAL ARTIFACT NAMING
+# =============================================================================
+artifact:
+  naming:
+    # Set true only when you want a copied, consistently named artifact under
+    # ./dist. The original Gradle output is not renamed in place.
+    enabled: true
+    pattern: "{project}-{environment}-v{version}-{build}.{extension}"

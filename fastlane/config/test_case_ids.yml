@@ -1,0 +1,15 @@
+# =============================================================================
+# Firebase App Testing Agent - Test Case IDs Configuration
+# =============================================================================
+# The actual AI test cases and steps are created and managed in the Firebase Console UI.
+# List only the Firebase Test Case IDs below.
+#
+# Every Test Case ID listed here will be automatically executed by Firebase App
+# Testing Agent in blocking mode after the APK is uploaded to Firebase App Distribution.
+# =============================================================================
+
+test_case_ids:
+  - first-test-case
+  # - attendance-check-in # example
+  # - attendance-check-out # example
+  # - timesheet-submission # example

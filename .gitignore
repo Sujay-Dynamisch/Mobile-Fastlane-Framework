@@ -1,0 +1,26 @@
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+*.p8
+*.p12
+*.mobileprovision
+fastlane/firebase-service-account*.json
+*service-account*.json
+
+# Fastlane output
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/
+fastlane/test_output/
+dist/
+
+# Ruby / Bundler
+.bundle/
+vendor/bundle/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

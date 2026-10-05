@@ -1,0 +1,7 @@
+# iOS code-signing configuration is supplied by the Fastfile and environment.
+# Required for iOS/TestFlight projects using match:
+#   MATCH_GIT_URL
+#   MATCH_GIT_BRANCH (optional; defaults to main)
+#   MATCH_PASSWORD
+#
+# Keep signing secrets out of this file.

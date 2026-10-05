@@ -1,0 +1,85 @@
+name: Android Distribution
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Distribution environment
+        required: true
+        type: choice
+        default: staging
+        options:
+          - development
+          - staging
+          - uat
+          - production
+
+jobs:
+  distribute:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    permissions:
+      contents: read
+
+    env:
+      CI: "true"
+      GITHUB_ACTIONS: "true"
+      FIREBASE_ANDROID_DEV_APP_ID: ${{ secrets.FIREBASE_ANDROID_DEV_APP_ID }}
+      FIREBASE_ANDROID_DEV_GROUPS: ${{ secrets.FIREBASE_ANDROID_DEV_GROUPS }}
+      FIREBASE_ANDROID_STAGING_APP_ID: ${{ secrets.FIREBASE_ANDROID_STAGING_APP_ID }}
+      FIREBASE_ANDROID_STAGING_GROUPS: ${{ secrets.FIREBASE_ANDROID_STAGING_GROUPS }}
+      FIREBASE_ANDROID_UAT_APP_ID: ${{ secrets.FIREBASE_ANDROID_UAT_APP_ID }}
+      FIREBASE_ANDROID_UAT_GROUPS: ${{ secrets.FIREBASE_ANDROID_UAT_GROUPS }}
+      FIREBASE_ANDROID_PROD_APP_ID: ${{ secrets.FIREBASE_ANDROID_PROD_APP_ID }}
+      FIREBASE_ANDROID_PROD_GROUPS: ${{ secrets.FIREBASE_ANDROID_PROD_GROUPS }}
+      VERSION_NAME: ${{ vars.VERSION_NAME }}
+      # User token from `firebase login:ci` (required for the App Testing agent; service accounts get 403)
+      FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+      FIREBASE_TEST_USERNAME: ${{ secrets.FIREBASE_TEST_USERNAME }}
+      FIREBASE_TEST_PASSWORD: ${{ secrets.FIREBASE_TEST_PASSWORD }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Write Firebase credentials
+        shell: bash
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT_JSON" > "$RUNNER_TEMP/firebase-service-account.json"
+
+      - name: Validate Fastlane configuration
+        env:
+          FIREBASE_SERVICE_CREDENTIALS_FILE: ${{ runner.temp }}/firebase-service-account.json
+        run: |
+          bundle exec fastlane android doctor environment:${{ inputs.environment }}
+
+      - name: Build and distribute
+        env:
+          FIREBASE_SERVICE_CREDENTIALS_FILE: ${{ runner.temp }}/firebase-service-account.json
+        run: |
+          bundle exec fastlane android distribute environment:${{ inputs.environment }}

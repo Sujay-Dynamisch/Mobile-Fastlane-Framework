@@ -1,0 +1,9 @@
+MyApp - Mobile Distribution
+
+Version: 1.0.0
+Build: Automated Release
+
+Release Notes & Changes:
+- Integrated Fastlane automated build and distribution pipeline
+- Firebase App Distribution integration for internal testing
+- General UI and performance improvements

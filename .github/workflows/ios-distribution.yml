@@ -1,0 +1,78 @@
+name: iOS TestFlight Distribution
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Distribution environment
+        required: true
+        type: choice
+        default: staging
+        options:
+          - development
+          - staging
+          - uat
+          - production
+
+jobs:
+  distribute:
+    runs-on: macos-latest
+    timeout-minutes: 90
+
+    permissions:
+      contents: read
+
+    env:
+      CI: "true"
+      GITHUB_ACTIONS: "true"
+      APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+      MATCH_GIT_BRANCH: ${{ secrets.MATCH_GIT_BRANCH }}
+      MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+      VERSION_NAME: ${{ vars.VERSION_NAME }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Install CocoaPods dependencies
+        shell: bash
+        run: |
+          cd ios
+          pod install --repo-update
+
+      - name: Write App Store Connect API key
+        shell: bash
+        env:
+          APP_STORE_CONNECT_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_KEY_CONTENT }}
+        run: |
+          printf '%s' "$APP_STORE_CONNECT_KEY_CONTENT" > "$RUNNER_TEMP/AuthKey.p8"
+
+      - name: Validate Fastlane configuration
+        env:
+          APP_STORE_CONNECT_KEY_FILE: ${{ runner.temp }}/AuthKey.p8
+        run: |
+          bundle exec fastlane ios doctor environment:${{ inputs.environment }}
+
+      - name: Build and upload to TestFlight
+        env:
+          APP_STORE_CONNECT_KEY_FILE: ${{ runner.temp }}/AuthKey.p8
+        run: |
+          bundle exec fastlane ios distribute environment:${{ inputs.environment }}
