@@ -1,0 +1,198 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: "Roboto", Arial, sans-serif;
+  --font-display: "Outfit", "Google Sans", "Product Sans", Roboto, Arial, sans-serif;
+  --font-mono: "Roboto Mono", ui-monospace, monospace;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --color-background: var(--surface);
+  --color-foreground: var(--text);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--text);
+  --color-popover: var(--surface);
+  --color-popover-foreground: var(--text);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--on-primary);
+  --color-primary-container: var(--primary-container);
+  --color-secondary: var(--surface-variant);
+  --color-secondary-foreground: var(--text);
+  --color-muted: var(--surface-variant);
+  --color-muted-foreground: var(--text-secondary);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-foreground: var(--text);
+  --color-destructive: var(--warning-border);
+  --color-border: var(--border);
+  --color-input: var(--border);
+  --color-ring: var(--primary);
+  --color-surface: var(--surface);
+  --color-surface-variant: var(--surface-variant);
+  --color-code: var(--code-bg);
+  --color-note-bg: var(--note-bg);
+  --color-note-border: var(--note-border);
+  --color-caution-bg: var(--caution-bg);
+  --color-caution-border: var(--caution-border);
+  --color-caution-text: var(--caution-text);
+  --color-warning-bg: var(--warning-bg);
+  --color-warning-border: var(--warning-border);
+  --color-warning-text: var(--warning-text);
+  --color-success-bg: var(--success-bg);
+  --color-success-border: var(--success-border);
+  --color-success-text: var(--success-text);
+  --color-terminal: var(--terminal-bg);
+  --color-terminal-fg: var(--terminal-fg);
+}
+
+:root {
+  --primary: #1a73e8;
+  --on-primary: #ffffff;
+  --primary-container: #e8f0fe;
+  --accent: #ffa000;
+  --accent-strong: #f57c00;
+  --text: #202124;
+  --text-secondary: #5f6368;
+  --border: #dadce0;
+  --surface: #ffffff;
+  --surface-variant: #f8f9fa;
+  --code-bg: #f1f3f4;
+  --note-bg: #e8f0fe;
+  --note-border: #1a73e8;
+  --caution-bg: #fef7e0;
+  --caution-border: #f9ab00;
+  --caution-text: #b06000;
+  --warning-bg: #fce8e6;
+  --warning-border: #d93025;
+  --warning-text: #c5221f;
+  --success-bg: #e6f4ea;
+  --success-border: #1e8e3e;
+  --success-text: #137333;
+  --terminal-bg: #202124;
+  --terminal-fg: #e8eaed;
+  --gradient-brand: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  --shadow-card: 0 1px 2px rgb(60 64 67 / 0.15), 0 1px 3px 1px rgb(60 64 67 / 0.08);
+}
+
+.dark {
+  --primary: #8ab4f8;
+  --on-primary: #202124;
+  --primary-container: #1e2a3d;
+  --accent: #ffca28;
+  --accent-strong: #ffb74d;
+  --text: #e8eaed;
+  --text-secondary: #9aa0a6;
+  --border: #3c4043;
+  --surface: #202124;
+  --surface-variant: #2a2b2e;
+  --code-bg: #2d2e31;
+  --note-bg: #1e2a3d;
+  --note-border: #8ab4f8;
+  --caution-bg: #3a2f12;
+  --caution-border: #fdd663;
+  --caution-text: #fdd663;
+  --warning-bg: #3c1f1e;
+  --warning-border: #f28b82;
+  --warning-text: #f28b82;
+  --success-bg: #1c3326;
+  --success-border: #81c995;
+  --success-text: #81c995;
+  --terminal-bg: #17181a;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.5), 0 1px 3px 1px rgb(0 0 0 / 0.3);
+}
+
+@layer base {
+  * { border-color: var(--color-border); }
+  html { scroll-padding-top: 88px; }
+  body {
+    background-color: var(--surface);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.6;
+  }
+  code, pre, kbd { font-family: var(--font-mono); }
+}
+
+/* Custom themed scrollbar */
+:root {
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: #c6c9cc;
+  --scrollbar-thumb-hover: #9aa0a6;
+}
+.dark {
+  --scrollbar-thumb: #4a4d51;
+  --scrollbar-thumb-hover: #6b6f74;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 8px;
+  border: 2px solid var(--surface);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.material-symbols-outlined {
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+  font-size: 20px;
+  line-height: 1;
+  user-select: none;
+}
+
+@utility doc-prose {
+  & h1 { font-family: var(--font-display); font-size: 32px; font-weight: 400; line-height: 1.25; }
+  & h2 { font-family: var(--font-display); font-size: 24px; font-weight: 400; line-height: 1.3; margin: 2.5rem 0 1rem; }
+  & h3 { font-family: var(--font-display); font-size: 20px; font-weight: 500; margin: 2rem 0 .75rem; }
+  & h4 { font-size: 16px; font-weight: 500; margin: 1.5rem 0 .5rem; }
+  & p { margin: 0 0 1rem; }
+  & ul { list-style: disc; padding-left: 1.5rem; margin: 0 0 1rem; }
+  & ol { list-style: decimal; padding-left: 1.5rem; margin: 0 0 1rem; }
+  & li { margin: .25rem 0; }
+  & a:not(.no-prose) { color: var(--primary); }
+  & a:not(.no-prose):hover { text-decoration: underline; }
+  & :not(pre) > code { background: var(--code-bg); padding: .1em .35em; border-radius: 4px; font-size: 0.875em; overflow-wrap: anywhere; }
+}
+
+@utility shadow-card { box-shadow: var(--shadow-card); }
+@utility bg-brand { background-image: var(--gradient-brand); }
+
+/* Copy-button feedback: icon pops, a small "Copied" bubble slides in beside it and fades. */
+@keyframes copy-pop {
+  0% { transform: scale(0.5); opacity: 0; }
+  60% { transform: scale(1.25); opacity: 1; }
+  100% { transform: scale(1); }
+}
+@keyframes copy-bubble {
+  0% { transform: translate(6px, -50%) scale(0.9); opacity: 0; }
+  15% { transform: translate(0, -50%) scale(1); opacity: 1; }
+  75% { transform: translate(0, -50%); opacity: 1; }
+  100% { transform: translate(-3px, -50%); opacity: 0; }
+}
+@utility animate-copy-pop { animation: copy-pop 0.35s cubic-bezier(0.2, 0.8, 0.3, 1.2); }
+@utility animate-copy-bubble { animation: copy-bubble 1.5s ease-out forwards; }
+@media (prefers-reduced-motion: reduce) {
+  .animate-copy-pop, .animate-copy-bubble { animation-duration: 1ms; }
+}

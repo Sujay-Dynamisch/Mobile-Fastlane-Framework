@@ -1,0 +1,81 @@
+import type { OfficialLink } from "@/components/docs/ui";
+
+/** Official, first-party documentation referenced across the docs. */
+export const L = {
+  // fastlane
+  fastlaneDocs: { source: "fastlane", title: "fastlane documentation", href: "https://docs.fastlane.tools/" },
+  fastlaneAndroidSetup: { source: "fastlane", title: "Getting started with fastlane for Android", href: "https://docs.fastlane.tools/getting-started/android/setup/" },
+  fastlaneIosSetup: { source: "fastlane", title: "Getting started with fastlane for iOS", href: "https://docs.fastlane.tools/getting-started/ios/setup/" },
+  fastlaneBundler: { source: "fastlane", title: "Use a Gemfile (recommended setup)", href: "https://docs.fastlane.tools/getting-started/ios/setup/#use-a-gemfile" },
+  fastlanePlugins: { source: "fastlane", title: "Using fastlane plugins (Pluginfile)", href: "https://docs.fastlane.tools/plugins/using-plugins/" },
+  fastlaneLanes: { source: "fastlane", title: "Lanes: options, platforms, before_all / error blocks", href: "https://docs.fastlane.tools/advanced/lanes/" },
+  fastlaneFastfile: { source: "fastlane", title: "Fastfile reference", href: "https://docs.fastlane.tools/advanced/Fastfile/" },
+  fastlaneSourceControl: { source: "fastlane", title: "Source control best practices (.gitignore)", href: "https://docs.fastlane.tools/best-practices/source-control/" },
+  fastlaneKeys: { source: "fastlane", title: "Keys and secrets", href: "https://docs.fastlane.tools/best-practices/keys/" },
+  fastlaneCi: { source: "fastlane", title: "Continuous integration", href: "https://docs.fastlane.tools/best-practices/continuous-integration/" },
+  fastlaneGithubActions: { source: "fastlane", title: "fastlane on GitHub Actions", href: "https://docs.fastlane.tools/best-practices/continuous-integration/github/" },
+  fastlaneGradle: { source: "fastlane", title: "gradle action", href: "https://docs.fastlane.tools/actions/gradle/" },
+  fastlaneBuildApp: { source: "fastlane", title: "build_app (gym) action", href: "https://docs.fastlane.tools/actions/build_app/" },
+  fastlaneTestflight: { source: "fastlane", title: "upload_to_testflight (pilot) action", href: "https://docs.fastlane.tools/actions/upload_to_testflight/" },
+  fastlaneMatch: { source: "fastlane", title: "match: share certificates and profiles", href: "https://docs.fastlane.tools/actions/match/" },
+  fastlaneCodesigning: { source: "fastlane", title: "Code signing guide", href: "https://docs.fastlane.tools/codesigning/getting-started/" },
+  fastlaneAscApi: { source: "fastlane", title: "Using the App Store Connect API key", href: "https://docs.fastlane.tools/app-store-connect-api/" },
+  fastlaneCocoapods: { source: "fastlane", title: "cocoapods action", href: "https://docs.fastlane.tools/actions/cocoapods/" },
+  fastlaneFirebasePlugin: { source: "GitHub", title: "fastlane-plugin-firebase_app_distribution", href: "https://github.com/fastlane/fastlane-plugin-firebase_app_distribution" },
+
+  // Ruby / Bundler
+  rubyInstall: { source: "Ruby", title: "Installing Ruby", href: "https://www.ruby-lang.org/en/documentation/installation/" },
+  rubyInstaller: { source: "RubyInstaller", title: "RubyInstaller for Windows (with DevKit)", href: "https://rubyinstaller.org/" },
+  rbenv: { source: "GitHub", title: "rbenv: Ruby version manager", href: "https://github.com/rbenv/rbenv" },
+  homebrew: { source: "Homebrew", title: "Homebrew package manager", href: "https://brew.sh/" },
+  bundler: { source: "Bundler", title: "Bundler: getting started", href: "https://bundler.io/guides/getting_started.html" },
+  gemfile: { source: "Bundler", title: "Gemfile reference", href: "https://bundler.io/guides/gemfile.html" },
+
+  // Android
+  androidStudio: { source: "Android", title: "Android Studio and SDK", href: "https://developer.android.com/studio" },
+  androidCmdline: { source: "Android", title: "Build your app from the command line", href: "https://developer.android.com/build/building-cmdline" },
+  androidVariants: { source: "Android", title: "Configure build variants (flavors and build types)", href: "https://developer.android.com/build/build-variants" },
+  androidSigning: { source: "Android", title: "Sign your app", href: "https://developer.android.com/studio/publish/app-signing" },
+  androidBundle: { source: "Android", title: "About Android App Bundles (AAB)", href: "https://developer.android.com/guide/app-bundle" },
+  androidShrink: { source: "Android", title: "Shrink, obfuscate and optimize (R8)", href: "https://developer.android.com/build/shrink-code" },
+  temurin: { source: "Adoptium", title: "Eclipse Temurin JDK 17", href: "https://adoptium.net/" },
+  rnEnvironment: { source: "React Native", title: "Set up your environment", href: "https://reactnative.dev/docs/set-up-your-environment" },
+  rnUpgradeHelper: { source: "React Native", title: "Upgrade Helper (diff between RN versions)", href: "https://react-native-community.github.io/upgrade-helper/" },
+  agpReleaseNotes: { source: "Android", title: "Android Gradle Plugin release notes (JDK requirements)", href: "https://developer.android.com/build/releases/gradle-plugin" },
+  expoCng: { source: "Expo", title: "Continuous Native Generation (expo prebuild)", href: "https://docs.expo.dev/workflow/continuous-native-generation/" },
+  rnSignedApk: { source: "React Native", title: "Publishing to Google Play Store (signed APK/AAB)", href: "https://reactnative.dev/docs/signed-apk-android" },
+
+  // Firebase / Google Cloud
+  firebaseAndroidSetup: { source: "Firebase", title: "Add Firebase to your Android project", href: "https://firebase.google.com/docs/android/setup" },
+  appDistribution: { source: "Firebase", title: "Firebase App Distribution", href: "https://firebase.google.com/docs/app-distribution" },
+  appDistFastlane: { source: "Firebase", title: "Distribute Android apps to testers using fastlane", href: "https://firebase.google.com/docs/app-distribution/android/distribute-fastlane" },
+  appDistTesters: { source: "Firebase", title: "Manage testers and groups", href: "https://firebase.google.com/docs/app-distribution/add-remove-testers" },
+  appTestingAgent: { source: "Firebase", title: "App Testing agent (AI tests)", href: "https://firebase.google.com/docs/app-distribution/android/app-testing-agent" },
+  firebaseCli: { source: "Firebase", title: "Firebase CLI reference", href: "https://firebase.google.com/docs/cli" },
+  gcpServiceAccount: { source: "Google Cloud", title: "Create service accounts", href: "https://cloud.google.com/iam/docs/service-accounts-create" },
+  gcpKeys: { source: "Google Cloud", title: "Create and delete service account keys", href: "https://cloud.google.com/iam/docs/keys-create-delete" },
+  gcpEnableApis: { source: "Google Cloud", title: "Enable an API", href: "https://cloud.google.com/apis/docs/getting-started#enabling_apis" },
+
+  // Apple
+  xcode: { source: "Apple", title: "Xcode", href: "https://developer.apple.com/xcode/" },
+  appleProgram: { source: "Apple", title: "Apple Developer Program", href: "https://developer.apple.com/programs/" },
+  ascAddApp: { source: "Apple", title: "Add a new app in App Store Connect", href: "https://developer.apple.com/help/app-store-connect/create-an-app-record/add-a-new-app" },
+  ascApiKeys: { source: "Apple", title: "Creating API keys for App Store Connect API", href: "https://developer.apple.com/documentation/appstoreconnectapi/creating-api-keys-for-app-store-connect-api" },
+  testflight: { source: "Apple", title: "TestFlight", href: "https://developer.apple.com/testflight/" },
+  xcodeSchemes: { source: "Apple", title: "Customizing the build schemes for a project", href: "https://developer.apple.com/documentation/xcode/customizing-the-build-schemes-for-a-project" },
+  exportCompliance: { source: "Apple", title: "Complying with encryption export regulations", href: "https://developer.apple.com/documentation/security/complying-with-encryption-export-regulations" },
+  appleDistribution: { source: "Apple", title: "Distributing your app for beta testing and releases", href: "https://developer.apple.com/documentation/xcode/distributing-your-app-for-beta-testing-and-releases" },
+  cocoapods: { source: "CocoaPods", title: "CocoaPods: getting started", href: "https://guides.cocoapods.org/using/getting-started.html" },
+
+  // CI / notifications / tools
+  ghActions: { source: "GitHub", title: "GitHub Actions documentation", href: "https://docs.github.com/en/actions" },
+  ghSecrets: { source: "GitHub", title: "Using secrets in GitHub Actions", href: "https://docs.github.com/en/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions" },
+  ghDispatch: { source: "GitHub", title: "workflow_dispatch (manual “Run workflow”)", href: "https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#workflow_dispatch" },
+  setupRuby: { source: "GitHub", title: "ruby/setup-ruby action (bundler-cache)", href: "https://github.com/ruby/setup-ruby" },
+  teamsWorkflows: { source: "Microsoft", title: "Create incoming webhooks with Workflows for Microsoft Teams", href: "https://support.microsoft.com/en-us/office/create-incoming-webhooks-with-workflows-for-microsoft-teams-8ae491c7-0394-4861-ba59-055e33f75498" },
+  adaptiveCards: { source: "Microsoft", title: "Adaptive Cards schema and designer", href: "https://adaptivecards.io/" },
+  slackWebhooks: { source: "Slack", title: "Sending messages using incoming webhooks", href: "https://api.slack.com/messaging/webhooks" },
+  gitignore: { source: "Git", title: "gitignore documentation", href: "https://git-scm.com/docs/gitignore" },
+  nodejs: { source: "Node.js", title: "Download Node.js (LTS)", href: "https://nodejs.org/en/download" },
+  yaml: { source: "YAML", title: "YAML 1.2 specification", href: "https://yaml.org/spec/1.2.2/" },
+} satisfies Record<string, OfficialLink>;
