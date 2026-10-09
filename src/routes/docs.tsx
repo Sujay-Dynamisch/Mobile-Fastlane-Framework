@@ -1,5 +1,5 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
-import { SideNav, SiteFooter } from "@/components/docs/shell";
+import { SideNav } from "@/components/docs/shell";
 
 export const Route = createFileRoute("/docs")({
   component: DocsLayout,
@@ -16,7 +16,6 @@ function DocsLayout() {
           <Outlet />
         </main>
       </div>
-      <SiteFooter />
     </>
   );
 }
