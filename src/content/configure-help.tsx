@@ -363,6 +363,7 @@ const GithubActions = () => (
     <ul>
       <li>Each selected channel builds its own IPA (Ad Hoc and App Store), so selecting both takes about twice as long.</li>
       <li>Production never goes to Firebase: the workflow skips that channel with a notice. The job fails if no channel is left.</li>
+      <li><strong>Firebase fallback:</strong> when the environment's <C>FIREBASE_IOS_&lt;ENV&gt;_APP_ID</C> and Firebase credentials are set, the build goes to Firebase if no channel is selected, or if the TestFlight upload fails (for example, the app is not in App Store Connect yet). A fallback run ends with a warning.</li>
       <li><strong>The App Store Connect API key is required for both channels on CI</strong>, because runners have no Apple ID signed in to Xcode.</li>
     </ul>
     <Callout type="tip" title="Turning on iOS CI">add the iOS secrets, run the workflow manually for <C>staging</C> with Firebase ticked, then with TestFlight ticked. Only after both pass, set <C>IOS_AUTO_DISTRIBUTE=true</C> (and <C>IOS_TESTFLIGHT=true</C> if merged PRs should go to TestFlight).</Callout>
