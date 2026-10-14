@@ -234,6 +234,14 @@ ios:
       scheme: "MyApp"
       bundle_identifier: "com.example.myapp"
       export_method: "app-store"
+      # `fastlane ios firebase`: Ad Hoc IPA → Firebase App Distribution.
+      # Installs only on devices registered in the Apple Developer portal.
+      firebase:
+        enabled: true
+        export_method: "ad-hoc"
+        app_id: "${FIREBASE_IOS_DEV_APP_ID}"
+        groups: "${FIREBASE_IOS_DEV_GROUPS}"
+        testers: ""
       versioning:
         # Uses BUILD_NUMBER / GITHUB_RUN_NUMBER when set, otherwise latest TestFlight build + 1.
         auto_increment_build_number: true
@@ -261,6 +269,12 @@ ios:
       # scheme: "MyApp-Staging"
       # bundle_identifier: "com.example.myapp.staging"
       export_method: "app-store"
+      firebase:
+        enabled: true
+        export_method: "ad-hoc"
+        app_id: "${FIREBASE_IOS_STAGING_APP_ID}"
+        groups: "${FIREBASE_IOS_STAGING_GROUPS}"
+        testers: ""
       versioning:
         # Uses BUILD_NUMBER / GITHUB_RUN_NUMBER when set, otherwise latest TestFlight build + 1.
         auto_increment_build_number: true
@@ -287,6 +301,12 @@ ios:
       # scheme: "MyApp-UAT"
       # bundle_identifier: "com.example.myapp.uat"
       export_method: "app-store"
+      firebase:
+        enabled: true
+        export_method: "ad-hoc"
+        app_id: "${FIREBASE_IOS_UAT_APP_ID}"
+        groups: "${FIREBASE_IOS_UAT_GROUPS}"
+        testers: ""
       versioning:
         # Uses BUILD_NUMBER / GITHUB_RUN_NUMBER when set, otherwise latest TestFlight build + 1.
         auto_increment_build_number: true
@@ -311,6 +331,12 @@ ios:
       scheme: "MyApp"
       bundle_identifier: "com.example.myapp"
       export_method: "app-store"
+      firebase:
+        enabled: false
+        export_method: "ad-hoc"
+        app_id: "${FIREBASE_IOS_PROD_APP_ID}"
+        groups: "${FIREBASE_IOS_PROD_GROUPS}"
+        testers: ""
       versioning:
         # Uses BUILD_NUMBER / GITHUB_RUN_NUMBER when set, otherwise latest TestFlight build + 1.
         auto_increment_build_number: true

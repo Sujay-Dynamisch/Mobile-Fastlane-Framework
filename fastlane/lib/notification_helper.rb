@@ -8,6 +8,16 @@ require "uri"
 module NotificationHelper
   module_function
 
+  # `UI` only exists inside the Fastfile; helper modules must use fastlane's logger directly
+  # (falls back to stdout when run outside fastlane, e.g. tests/scripts).
+  def log(level, message)
+    if defined?(FastlaneCore::UI)
+      FastlaneCore::UI.public_send(level, message)
+    else
+      (level == :error || level == :important ? $stderr : $stdout).puts(message)
+    end
+  end
+
   def notify_success(platform:, environment:, project:, version:, build:, artifact:, release_url: nil, config: {})
     message = success_message(
       platform: platform,
@@ -104,7 +114,7 @@ module NotificationHelper
     send_webhook("Microsoft Teams", teams, card || teams_card_payload(message)) if teams.fetch("enabled", false)
     send_webhook("Slack", slack, { "text" => message }) if slack.fetch("enabled", false)
   rescue StandardError => e
-    UI.important("Notification integration failed: #{e.message}")
+    log(:important, "Notification integration failed: #{e.message}")
   end
 
   def send_webhook(name, config, payload)
@@ -133,10 +143,14 @@ module NotificationHelper
     end
 
     unless response.is_a?(Net::HTTPSuccess)
-      raise "#{name} webhook returned #{response.code}: #{response.body}"
+      hint = if response.code.to_s == "401"
+        " — the webhook URL's signature (sig=) was rejected: the URL is incomplete or outdated. " \
+          "Copy the full URL again from the Power Automate trigger and update the webhook secret/env value."
+      end
+      raise "#{name} webhook returned #{response.code}: #{response.body}#{hint}"
     end
 
-    UI.message("#{name} notification sent (HTTP #{response.code}).") if defined?(UI)
+    log(:success, "#{name} notification sent (HTTP #{response.code}).")
   end
 
   # ---------------------------------------------------------------------------
@@ -371,8 +385,8 @@ module NotificationHelper
       ["Version", version],
       ["Build", build],
       ["Artifact", artifact ? File.basename(artifact.to_s) : nil],
-      ["Branch", ENV["GITHUB_REF_NAME"]],
-      ["Commit", ENV["GITHUB_SHA"].to_s[0, 7]],
+      ["Branch", ENV["DISTRIBUTION_BRANCH"] || ENV["GITHUB_REF_NAME"]],
+      ["Commit", (ENV["DISTRIBUTION_COMMIT"] || ENV["GITHUB_SHA"]).to_s[0, 7]],
       ["Triggered By", ENV["GITHUB_ACTOR"] || "Local run"]
     ]
   end

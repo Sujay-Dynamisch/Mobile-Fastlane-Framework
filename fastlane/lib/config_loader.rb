@@ -33,6 +33,14 @@ module DistributionConfig
   class MissingConfigurationError < ConfigurationError; end
 
   class << self
+    # Per-run overrides set by the interactive setup / saved profiles.
+    # Shape: { "android" => { ...env keys... }, "ios" => { ... } }
+    attr_writer :runtime_overrides
+
+    def runtime_overrides
+      @runtime_overrides ||= {}
+    end
+
     def all
       @all ||= load_configuration
     end
@@ -100,6 +108,7 @@ module DistributionConfig
     def android(environment)
       ensure_platform_enabled!("android")
       config = fetch_environment!(android_settings.fetch("environments", {}), environment, "Android")
+      config = merge_hashes(config, runtime_overrides.fetch("android", {}))
 
       firebase = config["firebase"]
       if firebase.is_a?(Hash) && firebase.fetch("enabled", false) == true
@@ -115,6 +124,7 @@ module DistributionConfig
     def ios(environment)
       ensure_platform_enabled!("ios")
       config = fetch_environment!(ios_settings.fetch("environments", {}), environment, "iOS")
+      config = merge_hashes(config, runtime_overrides.fetch("ios", {}))
 
       config["workspace"] = detect_ios_workspace if unresolved_or_blank?(config["workspace"])
       config["scheme"] = project["name"] if unresolved_or_blank?(config["scheme"])
@@ -239,6 +249,26 @@ module DistributionConfig
 
     def root
       ROOT
+    end
+
+    def config_path
+      CONFIG_PATH
+    end
+
+    def config_exists?
+      File.exist?(CONFIG_PATH)
+    end
+
+    def detected_app_name
+      detect_app_name
+    end
+
+    def detected_package_name
+      detect_package_name
+    end
+
+    def detected_ios_workspace
+      detect_ios_workspace
     end
 
     private
@@ -407,7 +437,8 @@ module DistributionConfig
       if File.exist?(app_json)
         begin
           data = JSON.parse(File.read(app_json))
-          name = data["displayName"] || data["name"]
+          # React Native CLI: {"name", "displayName"}; Expo: {"expo": {"name"}}
+          name = data["displayName"] || data["name"] || data.dig("expo", "name")
           return name.to_s.strip if name && !name.to_s.strip.empty?
         rescue StandardError
         end
@@ -448,11 +479,14 @@ module DistributionConfig
         end
       end
 
-      gradle_path = File.join(ROOT, "android", "app", "build.gradle")
-      if File.exist?(gradle_path)
+      # Groovy (`applicationId "x"`) and Kotlin DSL (`applicationId = "x"` in build.gradle.kts).
+      gradle_path = %w[build.gradle build.gradle.kts]
+                    .map { |name| File.join(ROOT, "android", "app", name) }
+                    .find { |path| File.exist?(path) }
+      if gradle_path
         begin
           content = File.read(gradle_path)
-          if content =~ /(?:applicationId|namespace)\s+["']([^"']+)["']/
+          if content =~ /(?:applicationId|namespace)\s*=?\s*["']([^"']+)["']/
             return Regexp.last_match(1).strip
           end
         rescue StandardError

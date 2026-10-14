@@ -32,7 +32,6 @@ A reusable, configuration-driven Fastlane setup that **builds**, **distributes**
 14. [Production safety](#14-production-safety)
 15. [CI/CD (GitHub Actions)](#15-cicd-github-actions)
 16. [Troubleshooting](#16-troubleshooting)
-17. [What has been set up so far (history)](#17-what-has-been-set-up-so-far-history)
 
 ---
 
@@ -165,9 +164,9 @@ Any string value can reference an environment variable as `${NAME}`. A value tha
 
 ```yaml
 project:
-  name: "SpringOne"              # used in artifact names, e-mails, webhooks
-  identifier: "springone"
-  organization: "Spring Clinic"
+  name: "MyApp"              # used in artifact names, e-mails, webhooks
+  identifier: "myapp"
+  organization: "Your Company"
   default_environment: "development"   # used when no environment: option and no APP_ENV
 ```
 
@@ -227,9 +226,9 @@ ios:
     update_project_signing: false# match only: set app target to manual signing (edits project.pbxproj)
   environments:
     development:
-      workspace: "ios/SpringOne.xcworkspace"
-      scheme: "SpringOne"        # must be a *Shared* scheme
-      bundle_identifier: "com.springclinic.springone"
+      workspace: "ios/MyApp.xcworkspace"
+      scheme: "MyApp"        # must be a *Shared* scheme
+      bundle_identifier: "com.example.myapp"
       export_method: "app-store"
       versioning:
         auto_increment_build_number: true
@@ -377,7 +376,7 @@ The App Testing agent (preview, powered by Gemini in Firebase) runs natural-lang
 **Things to know**
 - **Quota:** 200 tests / month / project during preview. *One test = one test case × one device.* 10 devices × 1 test case = 10 tests per distribution.
 - **Timeout:** 5 minutes per test.
-- **`FLAG_SECURE` blocks the agent** (it sees a blank screen). SpringOne enables `FLAG_SECURE` for non-admin staff after login (`ScreenSecurityModule.kt`), so post-login steps will fail unless it is disabled for dev/staging builds.
+- **`FLAG_SECURE` blocks the agent** (it sees a blank screen). If your app enables `FLAG_SECURE` (e.g. after login), post-login steps will fail unless it is disabled for dev/staging builds.
 - `blocking: false` uploads and starts the tests but does not wait for (or fail on) results.
 
 ---
@@ -453,8 +452,8 @@ The Xcode project is not modified for versioning: `Info.plist` uses `$(CURRENT_P
 
 1. `bundle install` and `npm ci` on the Mac.
 2. In `fastlane/config/environments.yml` set `ios.enabled: true`.
-3. In Xcode, make sure the `SpringOne` scheme is **Shared** (Product → Scheme → Manage Schemes → Shared). It already exists at `ios/SpringOne.xcodeproj/xcshareddata/xcschemes/SpringOne.xcscheme`.
-4. App Store Connect: create the app with bundle id `com.springclinic.springone`; create an API key (Users and Access → Integrations → App Store Connect API, role **Admin** for automatic signing).
+3. In Xcode, make sure the `MyApp` scheme is **Shared** (Product → Scheme → Manage Schemes → Shared).
+4. App Store Connect: create the app with bundle id `com.example.myapp`; create an API key (Users and Access → Integrations → App Store Connect API, role **Admin** for automatic signing).
 5. `.env` on the Mac:
    ```
    APPLE_TEAM_ID=XXXXXXXXXX
@@ -471,7 +470,7 @@ The Xcode project is not modified for versioning: `Info.plist` uses `$(CURRENT_P
 7. If signing fails with automatic signing, either open the project in Xcode once (Signing & Capabilities → select the team), or switch to `match`.
 
 Known iOS considerations to verify on the first run:
-- `pod install` runs inside the lane; the workspace `ios/SpringOne.xcworkspace` does not exist until then.
+- `pod install` runs inside the lane; the workspace `ios/MyApp.xcworkspace` does not exist until then.
 - The first TestFlight upload of a new app needs export-compliance info in App Store Connect (or `ITSAppUsesNonExemptEncryption` in `Info.plist`).
 - `ios build` alone (without `distribute`) also needs the API key, because it prepares signing and the build number.
 
@@ -490,7 +489,7 @@ Known iOS considerations to verify on the first run:
 - Android: `versionName` / `versionCode` stay in `android/app/build.gradle` (Firebase does not require unique version codes).
 - iOS: build number from `BUILD_NUMBER` → `GITHUB_RUN_NUMBER` → latest TestFlight + 1 (`auto_increment_build_number`). Version from `VERSION_NAME` if set.
 
-**Artifacts**: the original Gradle/Xcode output is never renamed; a copy named by `artifact.naming.pattern` goes to `dist/` (e.g. `dist/SpringOne-development-vunknown-0.apk` – set `VERSION_NAME`/`BUILD_NUMBER` for meaningful names).
+**Artifacts**: the original Gradle/Xcode output is never renamed; a copy named by `artifact.naming.pattern` goes to `dist/` (e.g. `dist/MyApp-development-vunknown-0.apk` – set `VERSION_NAME`/`BUILD_NUMBER` for meaningful names).
 
 ---
 
@@ -555,33 +554,3 @@ Repository variable `VERSION_NAME` is optional. `GITHUB_RUN_NUMBER` is used as t
 | Email report not received | Check `SMTP_*`, `TEST_ALERT_EMAIL_RECIPIENTS`, and `notifications.email.enabled` in `testing.yml`. Errors are logged, not fatal. |
 | Local `gcloud` fails with "Python was not found" | Install Python or use the Cloud Console; not needed by the framework. |
 
----
-
-## 17. What has been set up so far (history)
-
-**Android distribution pipeline**
-- Config-driven Fastfile with `doctor`, `info`, `build`, `distribute` and environment shortcut lanes; auto-detection of app name, package, Firebase app id.
-- Firebase App Distribution via `fastlane-plugin-firebase_app_distribution 1.0.0`, tester group `tester` for development.
-- Release notes, artifact naming into `dist/`, Teams/Slack hooks, production guard.
-
-**Firebase App Testing agent (AI tests)**
-- `testing.yml` (devices, blocking, e-mail report), `test_case_ids.yml`, `lib/app_testing_agent.rb`, `lib/test_result_parser.rb`, `lib/email_notifier.rb`.
-- Diagnosed the persistent `403 PERMISSION_DENIED` on test creation:
-  - Verified test case, devices (Test Lab catalog), billing and APIs; enabled **Cloud Tool Results API**.
-  - Confirmed no IAM role (not even Owner) carries an App Testing permission → the opt-in/Gemini terms are per user, so service accounts are refused.
-  - Created dedicated service account `fastlane-distribution@spring-clinic-95062.iam.gserviceaccount.com` (App Distribution Admin, Test Lab Admin, Gemini for Google Cloud User, Service Usage Consumer, Quality Admin, Storage Object Admin).
-  - **Fix:** support `FIREBASE_TOKEN` (user token from `firebase login:ci`), preferred over the service account. ✅ AI tests now run.
-- The lane prints a clear hint when Firebase returns 403.
-- **Manual testers always get the build:** distribute first, then run AI tests against the same release.
-
-**Cleanup and hardening (framework pass)**
-- Removed unused files: `fastlane/helpers/` (outdated duplicate of `lib/`), `fastlane/config/environments-test.yml` (old copy, never loaded), generated `report.xml`.
-- Removed unused config keys (`features`, `ci.secrets`, unused `security` keys, `timeout_seconds`, `java`, `module`, Android `versioning`, release-notification `email` blocks) and dead helper methods.
-- `testing.yml` `blocking` is now honoured; optional `FIREBASE_TEST_USERNAME` / `FIREBASE_TEST_PASSWORD` for login steps.
-- AI test report e-mail now reads `testing.yml` (previously silently disabled by the environment's release-notification settings).
-- iOS made runnable: automatic signing via API key (or `match` with correct `app_identifier`), `pod install` before build, unique build numbers for TestFlight, version override via `VERSION_NAME`, `ios info` lane, explicit IPA path for upload, correct platform in failure notifications.
-- `.env.example` and GitHub workflows updated with `FIREBASE_TOKEN`, test login, SMTP and `APPLE_TEAM_ID`.
-
-**Security follow-ups**
-- The `fastlane-distribution` private key was pasted into a chat session – delete that key in Google Cloud and create a new one; remove the copy in Downloads.
-- Keep `FIREBASE_TOKEN`, `.p8` keys and service-account JSON only in `.env` / CI secrets.

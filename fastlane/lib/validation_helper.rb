@@ -22,11 +22,28 @@ module ValidationHelper
     wrapper_name = Gem.win_platform? ? "gradlew.bat" : "gradlew"
     wrapper = file!(File.join(project_dir, wrapper_name), "Android Gradle wrapper")
 
+    # Repos committed from Windows often lose gradlew's executable bit; restore it on macOS/Linux.
+    File.chmod(0o755, wrapper) if !Gem.win_platform? && !File.executable?(wrapper)
+
     output = Dir.chdir(project_dir) do
       `"#{wrapper}" tasks --all --console=plain 2>&1`
     end
+    status = $?
 
     return true if output.to_s.include?(task.to_s)
+
+    # Gradle itself failed (permissions, JDK, SDK, plugin errors…) — report that, not "task missing".
+    unless status&.success?
+      raise DistributionConfig::ConfigurationError, <<~ERROR
+        Could not list Gradle tasks (exit code #{status&.exitstatus.inspect}).
+
+        Project:
+        #{project_dir}
+
+        Last Gradle output:
+        #{output.to_s.lines.last(25).join}
+      ERROR
+    end
 
     raise DistributionConfig::ConfigurationError, <<~ERROR
       Gradle task '#{task}' was not found.
@@ -65,12 +82,17 @@ module ValidationHelper
     branch!(allowed_branches)
 
     if safety.fetch("require_confirmation", false) && !ci
-      confirmed = UI.confirm("You are about to distribute a PRODUCTION build. Continue?")
+      confirmed = FastlaneCore::UI.confirm("You are about to distribute a PRODUCTION build. Continue?")
       raise "Production distribution cancelled." unless confirmed
     end
   end
 
   def current_branch
+    # Set by the distribution workflows: on a merged pull request GitHub's own ref is
+    # "<number>/merge", so the workflow passes the real target branch (e.g. "main").
+    explicit_branch = ENV["DISTRIBUTION_BRANCH"].to_s.strip
+    return explicit_branch unless explicit_branch.empty?
+
     github_branch = ENV["GITHUB_REF_NAME"].to_s.strip
     return github_branch unless github_branch.empty?
 

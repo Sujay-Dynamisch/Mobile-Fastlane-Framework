@@ -11,6 +11,10 @@ require_relative "lib/notification_helper"
 require_relative "lib/app_testing_agent"
 require_relative "lib/test_result_parser"
 require_relative "lib/email_notifier"
+require_relative "lib/project_detector"
+require_relative "lib/profile_store"
+require_relative "lib/setup_wizard"
+require_relative "lib/project_bootstrap"
 
 PROJECT_ROOT = DistributionConfig.root
 
@@ -112,6 +116,23 @@ def run_android_gradle(project_dir:, task:, flags: nil)
   gradle(**options)
 end
 
+# Firebase answers a distribute call for an unknown group alias (or an invalid
+# tester e-mail) with a bare "Invalid request"; point at the likely cause.
+def explain_firebase_distribution_error(error, options)
+  if error.message.to_s.include?("not linked to a Google Play account")
+    UI.important("Firebase only distributes AAB builds when the Firebase project is linked to Google Play")
+    UI.important("(Firebase Console > Project settings > Integrations > Google Play, with the app already in Play Console).")
+    UI.important("Fix: build an APK for Firebase testers (gradle_task assembleRelease, artifact.type APK), or link the project to Google Play.")
+    return
+  end
+  return unless error.message.to_s.include?("Invalid request")
+  return unless options.key?(:groups) || options.key?(:testers)
+
+  UI.important("Firebase uploaded the build but rejected distributing it to testers.")
+  UI.important("Groups: '#{options[:groups]}'  Testers: '#{options[:testers]}'")
+  UI.important("Check each group ALIAS exists in Firebase Console > App Distribution > Testers & Groups (case-sensitive, alias not display name), and that tester e-mails are valid.")
+end
+
 def android_firebase_options(config, artifact, release_notes)
   firebase = config.fetch("firebase", {})
   options = {
@@ -169,6 +190,11 @@ def ios_api_key
 end
 
 # xcodebuild needs the .p8 key on disk for automatic (cloud) signing.
+def ios_api_key_configured?
+  !ENV["APP_STORE_CONNECT_KEY_ID"].to_s.strip.empty? &&
+    !(ENV["APP_STORE_CONNECT_KEY_FILE"].to_s.strip.empty? && ENV["APP_STORE_CONNECT_KEY_CONTENT"].to_s.strip.empty?)
+end
+
 def ios_api_key_path
   key_file = ENV["APP_STORE_CONNECT_KEY_FILE"].to_s.strip
   return ValidationHelper.file!(key_file, "App Store Connect API key") unless key_file.empty?
@@ -216,7 +242,31 @@ def ios_install_pods!
   podfile = File.join(DistributionConfig.ios_project_dir, "Podfile")
   return unless File.exist?(podfile)
 
-  cocoapods(podfile: podfile, try_repo_update_on_error: true)
+  # Older React Native templates have no Gemfile pin for cocoapods; `bundle exec pod`
+  # would then fail, so fall back to the system `pod` in that case.
+  lockfile = File.join(PROJECT_ROOT, "Gemfile.lock")
+  bundled = File.exist?(lockfile) && File.read(lockfile).match?(/^    cocoapods \(/)
+  UI.important("cocoapods is not in Gemfile.lock; using the system `pod`. Add `gem \"cocoapods\"` to the Gemfile to pin it.") unless bundled
+
+  cocoapods(podfile: podfile, try_repo_update_on_error: true, use_bundle_exec: bundled)
+end
+
+# Versioning is injected through MARKETING_VERSION / CURRENT_PROJECT_VERSION xcargs.
+# Older React Native templates hard-code CFBundleShortVersionString / CFBundleVersion
+# in Info.plist, which silently ignores them (TestFlight then rejects reused builds).
+def ios_check_versioning_placeholders!
+  Dir.glob(File.join(DistributionConfig.ios_project_dir, "*", "Info.plist")).each do |plist|
+    content = File.read(plist)
+    next unless content.include?("CFBundleExecutable")
+
+    %w[CFBundleShortVersionString CFBundleVersion].each do |key|
+      value = content[%r{<key>#{key}</key>\s*<string>([^<]*)</string>}, 1]
+      next if value.nil? || value.start_with?("$(")
+
+      wanted = key == "CFBundleVersion" ? "$(CURRENT_PROJECT_VERSION)" : "$(MARKETING_VERSION)"
+      UI.important("#{plist}: #{key} is hard-coded to '#{value}'. Set it to #{wanted} so build numbers/versions from the framework apply.")
+    end
+  end
 end
 
 def ios_xcodeproj
@@ -229,6 +279,8 @@ def ios_build_number(config, api_key)
   explicit = release_build
   return explicit unless explicit == "0"
   return nil unless config.dig("versioning", "auto_increment_build_number") == true
+  # Without the API key the latest TestFlight build can't be read; keep the project's number.
+  return nil if api_key.nil?
 
   latest = latest_testflight_build_number(
     api_key: api_key,
@@ -321,7 +373,7 @@ platform :android do
     DistributionConfig.validate_android_environment!(environment)
 
     project_dir = DistributionConfig.android_project_dir
-    ValidationHelper.file!(project_dir, "Android project directory")
+    ValidationHelper.file!(project_dir, "Android project directory (Expo: run `npx expo prebuild` first)")
     android_gradle_wrapper
 
     config = DistributionConfig.android(environment)
@@ -331,6 +383,10 @@ platform :android do
 
     artifact = config.fetch("artifact")
     ArtifactHelper.validate_type!(artifact.fetch("type").to_s.upcase)
+    if artifact.fetch("type").to_s.upcase == "AAB" && config.dig("firebase", "enabled") == true
+      UI.important("Artifact is AAB: Firebase App Distribution accepts AABs only if the Firebase project is linked to Google Play " \
+                   "(Project settings > Integrations > Google Play). Otherwise use an APK (assembleRelease) for testers.")
+    end
 
     if DistributionConfig.android_uses_flavors?
       if config["flavor"].to_s.strip.empty?
@@ -486,7 +542,12 @@ platform :android do
       if testing_enabled && recipients_present
         test_option_keys = %i[test_devices test_case_ids test_non_blocking test_username test_password]
         UI.message("Distributing to manual testers before running App Testing Agent...")
-        firebase_app_distribution(**options_for_firebase.reject { |k, _| test_option_keys.include?(k) })
+        begin
+          firebase_app_distribution(**options_for_firebase.reject { |k, _| test_option_keys.include?(k) })
+        rescue StandardError => e
+          explain_firebase_distribution_error(e, options_for_firebase)
+          raise
+        end
         options_for_firebase = options_for_firebase.reject { |k, _| %i[groups testers].include?(k) }
       end
 
@@ -504,6 +565,7 @@ platform :android do
           api_body = e.cause.body
         end
         UI.error("Firebase API Error Response: #{api_body}") if api_body
+        explain_firebase_distribution_error(e, options_for_firebase)
         if testing_enabled && api_body.to_s.include?("PERMISSION_DENIED")
           UI.important("The release was uploaded, but Firebase refused to start the App Testing run (403).")
           UI.important("This is a project-level gate, not a missing IAM role: open Firebase Console > App Distribution > release > Run test,")
@@ -643,18 +705,56 @@ platform :ios do
       ValidationHelper.required!(ENV["MATCH_PASSWORD"], "MATCH_PASSWORD")
     end
 
-    ValidationHelper.required!(
-      ENV["APP_STORE_CONNECT_KEY_ID"],
-      "APP_STORE_CONNECT_KEY_ID"
-    )
+    ios_check_versioning_placeholders!
 
+    # TestFlight needs an App Store Connect API key; Firebase (Ad Hoc) does not.
+    UI.header("TestFlight (fastlane ios #{environment})")
     key_file = ENV["APP_STORE_CONNECT_KEY_FILE"].to_s.strip
     key_content = ENV["APP_STORE_CONNECT_KEY_CONTENT"].to_s
-    if key_file.empty? && key_content.empty?
-      UI.user_error!("Provide APP_STORE_CONNECT_KEY_FILE or APP_STORE_CONNECT_KEY_CONTENT.")
+    testflight_missing = []
+    testflight_missing << "APP_STORE_CONNECT_KEY_ID" if ENV["APP_STORE_CONNECT_KEY_ID"].to_s.strip.empty?
+    testflight_missing << "APP_STORE_CONNECT_ISSUER_ID" if ENV["APP_STORE_CONNECT_ISSUER_ID"].to_s.strip.empty?
+    testflight_missing << "APP_STORE_CONNECT_KEY_FILE or APP_STORE_CONNECT_KEY_CONTENT" if key_file.empty? && key_content.empty?
+    testflight_ready = testflight_missing.empty?
+    if testflight_ready
+      ValidationHelper.file!(key_file, "App Store Connect API key") unless key_file.empty?
+      UI.success("TestFlight: READY")
+    else
+      UI.important("TestFlight: NOT READY — missing #{testflight_missing.join(', ')}")
     end
 
-    ValidationHelper.file!(key_file, "App Store Connect API key") unless key_file.empty?
+    UI.header("Firebase App Distribution (fastlane ios firebase environment:#{environment})")
+    firebase = config.fetch("firebase", {})
+    firebase_ready = false
+    if firebase.fetch("enabled", false)
+      firebase_missing = []
+      firebase_missing << "ios.#{environment}.firebase.app_id" if firebase["app_id"].to_s.strip.empty? || firebase["app_id"].to_s.start_with?("${")
+      groups = firebase["groups"].to_s.strip
+      testers = firebase["testers"].to_s.strip
+      if (groups.empty? || groups.start_with?("${")) && (testers.empty? || testers.start_with?("${"))
+        UI.important("Firebase: no tester groups/emails set — builds upload but are not sent to anyone.")
+      end
+      if ENV["FIREBASE_TOKEN"].to_s.strip.empty?
+        credentials = ENV["FIREBASE_SERVICE_CREDENTIALS_FILE"].to_s.strip
+        if credentials.empty?
+          firebase_missing << "FIREBASE_SERVICE_CREDENTIALS_FILE or FIREBASE_TOKEN"
+        else
+          ValidationHelper.file!(credentials, "Firebase service account credentials")
+        end
+      end
+      firebase_ready = firebase_missing.empty?
+      if firebase_ready
+        UI.success("Firebase: READY (export method: #{firebase.fetch('export_method', 'ad-hoc')})")
+      else
+        UI.important("Firebase: NOT READY — missing #{firebase_missing.join(', ')}")
+      end
+    else
+      UI.message("Firebase: disabled for #{environment}")
+    end
+
+    unless testflight_ready || firebase_ready
+      UI.user_error!("iOS #{environment}: neither TestFlight nor Firebase distribution is configured.")
+    end
 
     UI.success("iOS #{environment} configuration is valid.")
   end
@@ -694,7 +794,11 @@ platform :ios do
       "ios.#{environment}.scheme"
     )
 
-    api_key = options[:api_key] || ios_api_key
+    api_key = options[:api_key]
+    api_key ||= ios_api_key if ios_api_key_configured? && !(options[:signing] && options.key?(:build_number))
+    if options[:signing].nil? && api_key.nil? && current_ci? && DistributionConfig.ios_signing.fetch("method", "automatic").to_s == "automatic"
+      UI.user_error!("iOS signing on CI needs the App Store Connect API key (APP_STORE_CONNECT_KEY_ID, APP_STORE_CONNECT_ISSUER_ID, APP_STORE_CONNECT_KEY_FILE/CONTENT).")
+    end
     signing = options[:signing] || ios_prepare_signing!(config, api_key)
     build_number = options.key?(:build_number) ? options[:build_number] : ios_build_number(config, api_key)
 
@@ -716,10 +820,10 @@ platform :ios do
     build_options = {
       workspace: workspace,
       scheme: scheme,
-      export_method: config.fetch("export_method", "app-store"),
+      export_method: options[:export_method] || config.fetch("export_method", "app-store"),
       clean: clean,
       output_directory: output_directory,
-      output_name: "#{ArtifactHelper.sanitize(project_name)}-#{environment}.ipa"
+      output_name: "#{ArtifactHelper.sanitize(project_name)}-#{environment}#{options[:output_suffix]}.ipa"
     }
     build_options[:xcargs] = xcargs.join(" ") unless xcargs.empty?
     build_options[:export_xcargs] = signing[:export_xcargs] if signing[:export_xcargs]
@@ -831,6 +935,191 @@ platform :ios do
   lane :production do
     distribute(environment: "production")
   end
+
+  desc "Build an Ad Hoc IPA and upload it to Firebase App Distribution"
+  desc "Signs with the Apple ID signed in to Xcode; no App Store Connect API key needed"
+  lane :firebase do |options|
+    ensure_ios_platform!
+
+    environment = selected_environment(options)
+    ENV["APP_ENV"] = environment
+    config = DistributionConfig.ios(environment)
+
+    DistributionConfig.validate!
+    DistributionConfig.validate_ios_environment!(environment)
+    ValidationHelper.production_guard!(config, ci: current_ci?)
+
+    firebase = config.fetch("firebase", {})
+    unless firebase.fetch("enabled", false)
+      UI.user_error!("Firebase distribution is disabled for iOS #{environment} (ios.environments.#{environment}.firebase.enabled).")
+    end
+
+    # Automatic signing without an API key falls back to the Xcode account session,
+    # which CI runners don't have.
+    if current_ci? && DistributionConfig.ios_signing.fetch("method", "automatic").to_s == "automatic" && ios_api_key_path.nil?
+      UI.user_error!("iOS signing on CI needs the App Store Connect API key (APP_STORE_CONNECT_KEY_ID, APP_STORE_CONNECT_ISSUER_ID, APP_STORE_CONNECT_KEY_FILE/CONTENT).")
+    end
+    signing = ios_prepare_signing!(config, nil)
+    # BUILD_NUMBER / GITHUB_RUN_NUMBER, otherwise the Xcode project's value.
+    build_number = release_build == "0" ? nil : release_build
+
+    ipa = build(
+      environment: environment,
+      signing: signing,
+      build_number: build_number,
+      export_method: firebase.fetch("export_method", "ad-hoc"),
+      output_suffix: "-firebase"
+    )
+
+    release_notes = ReleaseNotes.generate(
+      environment: environment,
+      config: effective_release_notes(config)
+    )
+
+    upload_options = {
+      app: ValidationHelper.required!(firebase["app_id"], "ios.#{environment}.firebase.app_id"),
+      ipa_path: File.expand_path(ipa),
+      release_notes: release_notes
+    }
+
+    groups = firebase["groups"].to_s.strip
+    testers = firebase["testers"].to_s.strip
+    upload_options[:groups] = groups unless groups.empty? || groups.start_with?("${")
+    upload_options[:testers] = testers unless testers.empty? || testers.start_with?("${")
+
+    cli_token = ENV["FIREBASE_TOKEN"].to_s.strip
+    if cli_token.empty?
+      credentials = ValidationHelper.required!(ENV["FIREBASE_SERVICE_CREDENTIALS_FILE"], "FIREBASE_SERVICE_CREDENTIALS_FILE or FIREBASE_TOKEN")
+      upload_options[:service_credentials_file] = ValidationHelper.file!(credentials, "Firebase service account credentials")
+    else
+      upload_options[:firebase_cli_token] = cli_token
+    end
+
+    begin
+      firebase_app_distribution(**upload_options)
+    rescue StandardError => e
+      explain_firebase_distribution_error(e, upload_options)
+      raise
+    end
+
+    notify_success_safely(
+      platform: "iOS",
+      environment: environment,
+      version: release_version,
+      build: release_build,
+      artifact: ipa,
+      release_url: firebase_release_url(lane_context[SharedValues::FIREBASE_APP_DISTRO_RELEASE]),
+      config: DistributionConfig.effective_notifications(config)
+    )
+
+    UI.success("iOS #{environment} build uploaded to Firebase App Distribution.")
+  end
+end
+
+# =============================================================================
+# Interactive setup & saved profiles
+# =============================================================================
+
+def truthy?(value)
+  %w[true 1 yes y].include?(value.to_s.strip.downcase)
+end
+
+# Runs a platform lane (e.g. android build) from a platform-less lane.
+def run_platform_lane(platform, lane, options)
+  previous = runner.current_platform
+  runner.current_platform = platform.to_sym
+  Actions.lane_context[SharedValues::PLATFORM_NAME] = platform.to_sym
+  runner.try_switch_to_lane(lane.to_sym, [options])
+ensure
+  runner.current_platform = previous
+end
+
+def apply_profile!(profile)
+  environment = profile["environment"].to_s.strip.downcase
+  platforms = Array(profile["platforms"]).map(&:to_s)
+  action = profile.fetch("action", "build").to_s
+
+  UI.user_error!("Profile '#{profile['name']}' has no environment.") if environment.empty?
+  UI.user_error!("Profile '#{profile['name']}' has no platforms.") if platforms.empty?
+  UI.user_error!("Profile action must be build or distribute (got '#{action}').") unless %w[build distribute].include?(action)
+
+  overrides = {}
+  platforms.each do |platform|
+    values = profile.fetch(platform, {})
+    values = values.is_a?(Hash) ? values.dup : {}
+    # Build-only runs never upload, so doctor must not demand Firebase credentials.
+    if platform == "android" && action == "build"
+      values["firebase"] = (values["firebase"] || {}).merge("enabled" => false)
+      values["app_testing"] = (values["app_testing"] || {}).merge("enabled" => false)
+    end
+
+    notes = values.fetch("release_notes", {})
+    if notes["source"].to_s == "manual" && ENV["RELEASE_NOTES"].to_s.strip.empty? && !notes["text"].to_s.strip.empty?
+      ENV["RELEASE_NOTES"] = notes["text"]
+    end
+
+    overrides[platform] = values
+  end
+
+  DistributionConfig.runtime_overrides = overrides
+  ENV["APP_ENV"] = environment
+  [environment, platforms, action]
+end
+
+def run_build_profile(profile, dry_run: false)
+  environment, platforms, action = apply_profile!(profile)
+  SetupWizard.summary(profile)
+
+  platforms.each do |platform|
+    run_platform_lane(platform, :doctor, environment: environment)
+    if dry_run
+      run_platform_lane(platform, :info, environment: environment)
+      next
+    end
+
+    lane = action == "distribute" ? :distribute : :build
+    lane = :firebase if platform == "ios" && action == "distribute" && profile.dig("ios", "channel") == "firebase"
+    run_platform_lane(platform, lane, environment: environment)
+  end
+end
+
+desc "Interactive one-time project setup: generates fastlane/config/environments.yml"
+lane :init_project do
+  UI.user_error!("`fastlane init_project` is interactive and cannot run in CI.") if current_ci?
+  ProjectBootstrap.run
+end
+
+desc "Interactive build setup: reuse a saved setup or create a new one, then run it"
+lane :setup do |options|
+  if current_ci?
+    UI.user_error!("`fastlane setup` is interactive. In CI use: fastlane run_profile name:<profile>")
+  end
+
+  profile = SetupWizard.start
+  ProfileStore.last_used = profile["name"] if profile["name"]
+  run_build_profile(profile, dry_run: truthy?(options[:dry_run]))
+end
+
+desc "Run a saved setup profile without prompts (CI friendly). Options: name:<profile> dry_run:true"
+lane :run_profile do |options|
+  name = options[:name].to_s.strip
+  name = ProfileStore.last_used.to_s if name.empty? && !current_ci?
+  if name.empty?
+    UI.user_error!("Pass name:<profile>. Available: #{ProfileStore.list.join(', ')}")
+  end
+
+  run_build_profile(ProfileStore.load(name), dry_run: truthy?(options[:dry_run]))
+end
+
+desc "List saved setup profiles"
+lane :profiles do
+  names = ProfileStore.list
+  UI.message("No saved profiles. Create one with `fastlane setup`.") if names.empty?
+  last = ProfileStore.last_used
+  names.each do |name|
+    marker = name == last ? " (last used)" : ""
+    UI.message("#{name}#{marker} — #{ProfileStore.describe(ProfileStore.load(name))}")
+  end
 end
 
 # =============================================================================
@@ -839,21 +1128,29 @@ end
 
 before_all do |lane|
   UI.message("Starting Fastlane lane: #{lane}")
-  DistributionConfig.validate!
+  # init_project creates the config, so it cannot be validated yet.
+  DistributionConfig.validate! unless lane.to_s == "init_project"
 end
 
 after_all do |lane|
   UI.success("Fastlane completed successfully: #{lane}")
 end
 
-error do |lane, exception, _options|
+error do |lane, exception, options|
   UI.error("Fastlane lane failed: #{lane}")
   UI.error(exception.message)
 
-  next unless ENV["DISTRIBUTION_ACTIVE"] == "true"
+  # Notify Teams/Slack when a distribution fails, and on CI also when the pre-flight
+  # `doctor` fails. Note: lanes reset DISTRIBUTION_ACTIVE in their `ensure` block, which
+  # runs BEFORE this handler, so the flag alone can't be relied on here.
+  failed_lane = lane.to_s.split(/[\s:]/).last.to_s
+  notifiable_lane = %w[distribute development staging uat production firebase].include?(failed_lane) ||
+                    (current_ci? && failed_lane == "doctor")
+  next unless ENV["DISTRIBUTION_ACTIVE"] == "true" || notifiable_lane
 
-  environment = ENV["APP_ENV"].to_s.strip
-  environment = "unknown" if environment.empty?
+  environment = (options && options[:environment]).to_s.strip
+  environment = ENV["APP_ENV"].to_s.strip if environment.empty?
+  environment = DistributionConfig.default_environment.to_s if environment.empty?
 
   platform = lane_context[SharedValues::PLATFORM_NAME].to_s == "ios" ? "iOS" : "Android"
   notify_config =
