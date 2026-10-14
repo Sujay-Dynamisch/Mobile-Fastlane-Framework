@@ -3,6 +3,7 @@ import { ConsoleButtons, ToolDownloads } from "@/components/docs/downloads";
 import { Accordion, Callout, CodeBlock, DocLink, EnvVarTable, Ext, Icon, OfficialDocs, ParamTable, Ph, Steps, Step, Terminal, Cmd, ClaudePrompt, CopyButton } from "@/components/docs/ui";
 import { C, H2, type DocPage } from "./helpers";
 import { L } from "./links";
+import { GithubRunIosWorkflowShot, GithubVariablesShot } from "@/components/docs/ios-mockups";
 import { EmailReportShot, ImageShot, Screenshot, SlackMessageShot, TeamsFailureCard, TeamsSuccessCard, TeamsTestReportCard } from "@/components/docs/mockups";
 
 const EnvYml = () => (
@@ -121,12 +122,19 @@ $ git check-ignore .env
     ]} />
     <H2>iOS / App Store Connect</H2>
     <EnvVarTable rows={[
-      ["APP_STORE_CONNECT_KEY_ID", "Required", "API key ID"],
-      ["APP_STORE_CONNECT_ISSUER_ID", "Required (team keys)", "Issuer ID"],
-      ["APP_STORE_CONNECT_KEY_FILE", "One of file/content", <>Path to <C>AuthKey_XXXX.p8</C></>],
-      ["APP_STORE_CONNECT_KEY_CONTENT", "One of file/content", <>Raw <C>.p8</C> content</>],
+      ["APP_STORE_CONNECT_KEY_ID", "TestFlight; CI", "API key ID"],
+      ["APP_STORE_CONNECT_ISSUER_ID", "TestFlight; CI", "Issuer ID"],
+      ["APP_STORE_CONNECT_KEY_FILE", "One of file/content", <>Path to <C>AuthKey_XXXX.p8</C> (outside the repo)</>],
+      ["APP_STORE_CONNECT_KEY_CONTENT", "One of file/content", <>Raw <C>.p8</C> content (use this on CI)</>],
       ["APPLE_TEAM_ID", "Recommended", "10-character team ID"],
       ["MATCH_GIT_URL, MATCH_PASSWORD, MATCH_GIT_BRANCH", "match only", "Certificates repo"],
+    ]} />
+    <Callout type="note">the <C>APP_STORE_CONNECT_*</C> variables are needed for <strong>TestFlight</strong>, and for <strong>both</strong> iOS channels on CI. Local Firebase (Ad Hoc) builds on a Mac sign with the Apple ID in Xcode instead.</Callout>
+    <H2>iOS / Firebase App Distribution</H2>
+    <EnvVarTable rows={[
+      ["FIREBASE_IOS_<ENV>_APP_ID", "Required for ios firebase", <><C>1:123…:ios:abc…</C> per env (DEV, STAGING, UAT)</>],
+      ["FIREBASE_IOS_<ENV>_GROUPS", "One of groups/testers", "Tester group aliases, comma-separated. Empty = uploads but goes to nobody"],
+      ["FIREBASE_SERVICE_CREDENTIALS_FILE / FIREBASE_TOKEN", "Required", "Same credentials as Android"],
     ]} />
     <H2>Release metadata and notifications</H2>
     <EnvVarTable showRequired={false} rows={[
@@ -339,8 +347,27 @@ $ git switch main && bundle exec fastlane android production
 
 const GithubActions = () => (
   <>
-    <p>There are two manual workflows. Run them from <strong>Actions → Android Distribution / iOS TestFlight Distribution → Run workflow</strong>, then pick an environment (development, staging, uat or production).</p>
-    <p>Each workflow runs <C>doctor</C>, then <C>distribute</C>.</p>
+    <p>There are two workflows, <strong>Android Distribution</strong> and <strong>iOS Distribution</strong>. Each runs <C>doctor</C>, then distributes, and uploads the APK/IPA as a build artifact (kept 14 days). Run them from <strong>Actions → &lt;workflow&gt; → Run workflow</strong> and pick an environment.</p>
+    <H2>When they run</H2>
+    <ParamTable codeFirst={false} head={["Event", "Android", "iOS"]} rows={[
+      ["Pull request into main merged", <>Runs (environment <C>ANDROID_AUTO_ENVIRONMENT</C>, default development)</>, <>Only if variable <C>IOS_AUTO_DISTRIBUTE=true</C> (environment <C>IOS_AUTO_ENVIRONMENT</C>, default staging). Otherwise the run shows as <strong>skipped</strong>.</>],
+      ["PR opened / updated / closed without merge", "—", "—"],
+      [<>Only <C>*.md</C>, <C>docs/**</C> or <C>functions/**</C> changed</>, "—", "—"],
+      ["Actions → Run workflow (manual)", "Any environment", "Any environment, with channel checkboxes"],
+    ]} />
+    <H2>iOS channels</H2>
+    <ParamTable codeFirst={false} head={["Channel", "Manual run (checkbox)", "Merged PR (repository variable)", "Lane"]} rows={[
+      ["Firebase App Distribution (Ad Hoc)", <><C>firebase</C>, on by default</>, <><C>IOS_FIREBASE</C>, default <C>true</C></>, <C>ios firebase</C>],
+      ["TestFlight", <><C>testflight</C>, off by default</>, <><C>IOS_TESTFLIGHT</C>, default <C>false</C></>, <C>ios distribute</C>],
+    ]} />
+    <ul>
+      <li>Each selected channel builds its own IPA (Ad Hoc and App Store), so selecting both takes about twice as long.</li>
+      <li>Production never goes to Firebase: the workflow skips that channel with a notice. The job fails if no channel is left.</li>
+      <li><strong>The App Store Connect API key is required for both channels on CI</strong>, because runners have no Apple ID signed in to Xcode.</li>
+    </ul>
+    <Callout type="tip" title="Turning on iOS CI">add the iOS secrets, run the workflow manually for <C>staging</C> with Firebase ticked, then with TestFlight ticked. Only after both pass, set <C>IOS_AUTO_DISTRIBUTE=true</C> (and <C>IOS_TESTFLIGHT=true</C> if merged PRs should go to TestFlight).</Callout>
+    <GithubRunIosWorkflowShot />
+    <GithubVariablesShot />
     <H2>Secrets</H2>
     <ParamTable codeFirst={false} head={["Android", "iOS"]} rows={[
       [<><C>FIREBASE_TOKEN</C> (needed for AI tests)</>, <C>APP_STORE_CONNECT_KEY_ID</C>],
@@ -348,8 +375,9 @@ const GithubActions = () => (
       [<><C>FIREBASE_ANDROID_&lt;ENV&gt;_APP_ID</C>, <C>FIREBASE_ANDROID_&lt;ENV&gt;_GROUPS</C></>, <><C>APP_STORE_CONNECT_KEY_CONTENT</C> (raw .p8)</>],
       [<><C>FIREBASE_TEST_USERNAME</C>, <C>FIREBASE_TEST_PASSWORD</C> (optional)</>, <C>APPLE_TEAM_ID</C>],
       [<><C>TEAMS_WEBHOOK_URL</C>, <C>SMTP_*</C> (optional)</>, <><C>MATCH_GIT_URL</C>, <C>MATCH_GIT_BRANCH</C>, <C>MATCH_PASSWORD</C> (match only)</>],
+      ["", <><strong>Firebase channel:</strong> <C>FIREBASE_SERVICE_ACCOUNT_JSON</C> (or <C>FIREBASE_TOKEN</C>), <C>FIREBASE_IOS_&lt;ENV&gt;_APP_ID</C>, <C>FIREBASE_IOS_&lt;ENV&gt;_GROUPS</C></>],
     ]} />
-    <Callout type="note">the repository variable <C>VERSION_NAME</C> is optional. <C>GITHUB_RUN_NUMBER</C> is used as the build number automatically.</Callout>
+    <Callout type="note">repository variables (all optional): <C>ANDROID_AUTO_ENVIRONMENT</C>, <C>IOS_AUTO_DISTRIBUTE</C>, <C>IOS_AUTO_ENVIRONMENT</C>, <C>IOS_FIREBASE</C>, <C>IOS_TESTFLIGHT</C>, <C>VERSION_NAME</C>. <C>GITHUB_RUN_NUMBER</C> is used as the build number automatically.</Callout>
     <H2>Add the secrets</H2>
     <Steps>
       <Step>In GitHub open <strong>Settings → Secrets and variables → Actions → New repository secret</strong> (<Ext href={L.ghSecrets.href}>GitHub: using secrets</Ext>).</Step>
@@ -399,9 +427,10 @@ const Lanes = () => (
       ["bundle exec fastlane android build environment:staging", <>Gradle build → finds artifact → copies named file to <C>dist/</C></>],
       ["bundle exec fastlane android distribute environment:staging", "Full pipeline"],
       ["bundle exec fastlane android development / staging / uat / production", "Shortcuts for distribute"],
-      ["bundle exec fastlane ios doctor environment:staging", "pod install, workspace, shared scheme, signing inputs, API key"],
+      ["bundle exec fastlane ios doctor environment:staging", "pod install, workspace, shared scheme, signing; reports TestFlight and Firebase readiness separately"],
       ["bundle exec fastlane ios info environment:staging", "Prints resolved iOS config"],
       ["bundle exec fastlane ios build environment:staging", <>pod install → signing → build number → signed IPA in <C>dist/ios/&lt;env&gt;/</C></>],
+      ["bundle exec fastlane ios firebase environment:staging", "Ad Hoc IPA → Firebase App Distribution (no API key needed on a Mac signed in to Xcode)"],
       ["bundle exec fastlane ios distribute environment:staging", "Build + upload to TestFlight (+ external groups)"],
       ["bundle exec fastlane ios development / staging / uat / production", "Shortcuts for distribute"],
       ["bundle exec fastlane lanes", "List all lanes"],
@@ -440,6 +469,18 @@ const troubles: [string, string][] = [
   ["iOS workspace … does not exist", "pod install failed; run cd ios && bundle exec pod install."],
   ["iOS scheme '…' was not found", "Mark the scheme as Shared and commit xcshareddata."],
   ["TestFlight: bundle version already used", "Set BUILD_NUMBER or keep auto_increment_build_number: true."],
+  ["TestFlight build stuck on Missing Compliance", "Answer the encryption question in App Store Connect, or add ITSAppUsesNonExemptEncryption (NO for standard HTTPS only) to Info.plist."],
+  ["ITMS-90683: Missing purpose string in Info.plist", "Add the named NS…UsageDescription key (camera, photo library, location, Face ID…) to Info.plist and upload again."],
+  ["No suitable application records were found", "Create the app in App Store Connect, or fix ios bundle_identifier so it matches the app record exactly."],
+  ["App Store Connect: Authentication credentials are missing or invalid (401)", "Wrong APP_STORE_CONNECT_KEY_ID or ISSUER_ID, a revoked key, or a .p8 that belongs to another key."],
+  ["Missing required configuration: APP_STORE_CONNECT_KEY_ID", "A TestFlight lane ran without the API key. Use ios firebase, or add the key."],
+  ["⏩ No testers or groups passed in. Skipping this step. (iOS Firebase)", "Not an error: the build uploaded but went to nobody. Set FIREBASE_IOS_<ENV>_GROUPS to a group alias (case-sensitive)."],
+  ["Tester can't install an iOS Firebase build (Unable to install)", "Their device isn't in the Ad Hoc profile. Export UDIDs from Firebase, register them at developer.apple.com, then run ios firebase again."],
+  ["The Swift pod FirebaseCoreInternal depends upon GoogleUtilities, which does not define modules", "Add pod 'GoogleUtilities' and pod 'FirebaseCore' with :modular_headers => true to the Podfile (see iOS → First run)."],
+  ["Archive fails: IPHONEOS_DEPLOYMENT_TARGET … supported range 15.0 to …", "Add the Podfile post_install fix that raises pod deployment targets to 15.0, then pod install."],
+  ["No Account for Team / requires a development team", "Sign in to Xcode (Settings → Accounts) with an Apple ID on the team, or set the API key."],
+  ["iOS Distribution workflow run shows skipped", "Merged PRs only run it when the repository variable IOS_AUTO_DISTRIBUTE=true. Run it manually until iOS CI is verified."],
+  ["iOS signing on CI needs the App Store Connect API key", "Add the APP_STORE_CONNECT_KEY_ID, _ISSUER_ID and _KEY_CONTENT repository secrets. CI needs them for both iOS channels."],
   ["`fastlane setup` is interactive. In CI use: fastlane run_profile name:<profile>", "setup and init_project need a person to answer. In CI, run bundle exec fastlane run_profile name:<profile>."],
   ["Profile '<name>' not found", "Check fastlane/config/profiles/<name>.yml exists and is committed; names are lower-case with dashes. List them with bundle exec fastlane profiles."],
   ["No product flavors detected", "init_project / setup read productFlavors from android/app/build.gradle(.kts). If flavors come from a plugin or script, answer n to “Use this Gradle task and glob?” and type the task."],
@@ -447,7 +488,7 @@ const troubles: [string, string][] = [
   ["E-mail report not received", "Check SMTP_*, TEST_ALERT_EMAIL_RECIPIENTS and notifications.email.enabled. Errors are logged, not fatal."],
 ];
 
-const FRAMEWORK_CONTEXT = `I use the Mobile Fastlane Framework: a configuration-driven fastlane setup with a generic Fastfile + fastlane/lib/*.rb (do not fork per project). Project settings live in fastlane/config/environments.yml, testing.yml, test_case_ids.yml and saved setups in fastlane/config/profiles/*.yml; secrets come from .env or CI secrets. Android builds with Gradle and distributes via the firebase_app_distribution plugin (optional Firebase App Testing agent); iOS builds with build_app and uploads with upload_to_testflight. fastlane 2.240.1, run with bundle exec.`;
+const FRAMEWORK_CONTEXT = `I use the Mobile Fastlane Framework: a configuration-driven fastlane setup with a generic Fastfile + fastlane/lib/*.rb (do not fork per project). Project settings live in fastlane/config/environments.yml, testing.yml, test_case_ids.yml and saved setups in fastlane/config/profiles/*.yml; secrets come from .env or CI secrets. Android builds with Gradle and distributes via the firebase_app_distribution plugin (optional Firebase App Testing agent); iOS builds with build_app and distributes either as an Ad Hoc IPA to Firebase App Distribution (fastlane ios firebase) or to TestFlight with upload_to_testflight (fastlane ios distribute). fastlane 2.240.1, run with bundle exec.`;
 
 const ASK_RULES = `Please:
 1. Explain the root cause in plain words.
@@ -531,7 +572,8 @@ const faqs: [string, string][] = [
   ["Can Teams be enabled without changing the Fastfile?", "Yes. Set TEAMS_WEBHOOK_URL and notifications.teams.enabled: true. Notification failures are non-blocking."],
   ["Can production be protected?", "Yes, with allowed branches, CI-only execution and local confirmation."],
   ["Why can staging and production both use assembleRelease?", "The environment is a distribution concern. Truly isolated environments should use separate app ids, flavors or schemes."],
-  ["Does iOS use Firebase App Distribution?", "No. iOS goes Xcode → TestFlight."],
+  ["Does iOS use Firebase App Distribution?", "Yes, as an optional channel: fastlane ios firebase uploads an Ad Hoc IPA to Firebase (testers' devices must be registered). TestFlight (ios distribute) is the other channel and the only one used for production."],
+  ["Do I need the App Store Connect API key for iOS?", "For TestFlight, yes. For Firebase builds on a Mac, no: they sign with the Apple ID in Xcode. On CI, both channels need the key."],
   ["How do I choose APK or AAB per build without editing YAML?", "Run bundle exec fastlane setup and pick the artifact, or save the choice as a profile and run it with run_profile."],
   ["Are saved profiles safe to commit?", "Yes, as long as they contain no secrets. Profiles hold choices (env, flavor, artifact, groups); credentials stay in .env or CI secrets."],
   ["Does the interactive setup replace the platform lanes?", "No. It produces overrides and then calls the same doctor, build and distribute lanes, so validation and production guards still apply."],

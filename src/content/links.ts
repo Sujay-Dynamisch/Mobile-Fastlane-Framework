@@ -51,6 +51,9 @@ export const L = {
   appDistFastlane: { source: "Firebase", title: "Distribute Android apps to testers using fastlane", href: "https://firebase.google.com/docs/app-distribution/android/distribute-fastlane" },
   appDistTesters: { source: "Firebase", title: "Manage testers and groups", href: "https://firebase.google.com/docs/app-distribution/add-remove-testers" },
   appTestingAgent: { source: "Firebase", title: "App Testing agent (AI tests)", href: "https://firebase.google.com/docs/app-distribution/android/app-testing-agent" },
+  appDistIosFastlane: { source: "Firebase", title: "Distribute iOS apps to testers using fastlane", href: "https://firebase.google.com/docs/app-distribution/ios/distribute-fastlane" },
+  appDistRegisterDevices: { source: "Firebase", title: "Register additional iOS devices (export UDIDs)", href: "https://firebase.google.com/docs/app-distribution/register-additional-devices" },
+  firebaseIosSetup: { source: "Firebase", title: "Add Firebase to your Apple project", href: "https://firebase.google.com/docs/ios/setup" },
   firebaseCli: { source: "Firebase", title: "Firebase CLI reference", href: "https://firebase.google.com/docs/cli" },
   gcpServiceAccount: { source: "Google Cloud", title: "Create service accounts", href: "https://cloud.google.com/iam/docs/service-accounts-create" },
   gcpKeys: { source: "Google Cloud", title: "Create and delete service account keys", href: "https://cloud.google.com/iam/docs/keys-create-delete" },
@@ -65,6 +68,9 @@ export const L = {
   xcodeSchemes: { source: "Apple", title: "Customizing the build schemes for a project", href: "https://developer.apple.com/documentation/xcode/customizing-the-build-schemes-for-a-project" },
   exportCompliance: { source: "Apple", title: "Complying with encryption export regulations", href: "https://developer.apple.com/documentation/security/complying-with-encryption-export-regulations" },
   appleDistribution: { source: "Apple", title: "Distributing your app for beta testing and releases", href: "https://developer.apple.com/documentation/xcode/distributing-your-app-for-beta-testing-and-releases" },
+  appleRegisterDevices: { source: "Apple", title: "Register multiple devices", href: "https://developer.apple.com/help/account/devices/register-multiple-devices" },
+  testflightInternal: { source: "Apple", title: "Add internal testers (TestFlight)", href: "https://developer.apple.com/help/app-store-connect/test-a-beta-version/add-internal-testers" },
+  protectedResources: { source: "Apple", title: "Protected resources (Info.plist purpose strings)", href: "https://developer.apple.com/documentation/bundleresources/protected-resources" },
   cocoapods: { source: "CocoaPods", title: "CocoaPods: getting started", href: "https://guides.cocoapods.org/using/getting-started.html" },
 
   // CI / notifications / tools
