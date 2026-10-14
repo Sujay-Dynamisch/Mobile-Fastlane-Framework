@@ -1,6 +1,30 @@
-name: iOS TestFlight Distribution
+name: iOS Distribution
+
+# Channels (each one is a separate, optional build):
+#   Firebase App Distribution (Ad Hoc)  → ON by default
+#   TestFlight (App Store)              → OFF by default; turn on when the app exists in App Store Connect
+#
+# Manual run ("Run workflow"): pick the environment and tick the channels.
+# Merged PR into `main` (automatic): only when repository variable IOS_AUTO_DISTRIBUTE=true.
+#   Environment: IOS_AUTO_ENVIRONMENT (default "staging")
+#   Channels:    IOS_FIREBASE (default "true"), IOS_TESTFLIGHT (default "false")
+# Production never goes to Firebase (disabled in environments.yml); tick TestFlight for production.
+# Fallback: if TestFlight is off/unselected or its upload fails, and the environment's
+#   FIREBASE_IOS_<ENV>_APP_ID + Firebase credentials are set, the build goes to Firebase instead.
+#
+# Secrets required for ANY iOS build on CI (runners have no Apple ID signed in to Xcode, so
+# signing goes through the App Store Connect API key):
+#   APPLE_TEAM_ID, APP_STORE_CONNECT_KEY_ID, APP_STORE_CONNECT_ISSUER_ID, APP_STORE_CONNECT_KEY_CONTENT
+# Firebase also needs: FIREBASE_SERVICE_ACCOUNT_JSON (or FIREBASE_TOKEN),
+#   FIREBASE_IOS_<ENV>_APP_ID and FIREBASE_IOS_<ENV>_GROUPS (<ENV> = DEV, STAGING, UAT)
 
 on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'      - '.github/workflows/android-distribution.yml'
   workflow_dispatch:
     inputs:
       environment:
@@ -13,11 +37,26 @@ on:
           - staging
           - uat
           - production
+      firebase:
+        description: Firebase App Distribution (Ad Hoc)
+        type: boolean
+        default: true
+      testflight:
+        description: TestFlight (needs the app in App Store Connect)
+        type: boolean
+        default: false
+
+concurrency:
+  group: ios-distribution-${{ inputs.environment || vars.IOS_AUTO_ENVIRONMENT || 'staging' }}
+  cancel-in-progress: false
 
 jobs:
   distribute:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.merged == true && vars.IOS_AUTO_DISTRIBUTE == 'true')
     runs-on: macos-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
 
     permissions:
       contents: read
@@ -25,28 +64,86 @@ jobs:
     env:
       CI: "true"
       GITHUB_ACTIONS: "true"
+      LANG: en_US.UTF-8
+      DISTRIBUTION_ENV: ${{ inputs.environment || vars.IOS_AUTO_ENVIRONMENT || 'staging' }}
+      # Manual runs use the checkboxes; merged PRs use repository variables.
+      RUN_FIREBASE: ${{ github.event_name == 'workflow_dispatch' && inputs.firebase || (github.event_name != 'workflow_dispatch' && (vars.IOS_FIREBASE || 'true') == 'true') }}
+      RUN_TESTFLIGHT: ${{ github.event_name == 'workflow_dispatch' && inputs.testflight || (github.event_name != 'workflow_dispatch' && vars.IOS_TESTFLIGHT == 'true') }}
+      DISTRIBUTION_BRANCH: ${{ github.event.pull_request.base.ref || github.ref_name }}
+      DISTRIBUTION_COMMIT: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+      # Quoted: an unquoted " #" would start a YAML comment and cut the expression.
+      RELEASE_NOTES: "${{ github.event.pull_request && format('PR #{0}: {1}', github.event.pull_request.number, github.event.pull_request.title) || '' }}"
+      VERSION_NAME: ${{ vars.VERSION_NAME }}
+
+      # Apple signing (both channels on CI)
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
       APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
       APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
-      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
       MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
       MATCH_GIT_BRANCH: ${{ secrets.MATCH_GIT_BRANCH }}
       MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-      VERSION_NAME: ${{ vars.VERSION_NAME }}
+
+      # Firebase App Distribution (iOS)
+      FIREBASE_IOS_DEV_APP_ID: ${{ secrets.FIREBASE_IOS_DEV_APP_ID }}
+      FIREBASE_IOS_DEV_GROUPS: ${{ secrets.FIREBASE_IOS_DEV_GROUPS }}
+      FIREBASE_IOS_STAGING_APP_ID: ${{ secrets.FIREBASE_IOS_STAGING_APP_ID }}
+      FIREBASE_IOS_STAGING_GROUPS: ${{ secrets.FIREBASE_IOS_STAGING_GROUPS }}
+      FIREBASE_IOS_UAT_APP_ID: ${{ secrets.FIREBASE_IOS_UAT_APP_ID }}
+      FIREBASE_IOS_UAT_GROUPS: ${{ secrets.FIREBASE_IOS_UAT_GROUPS }}
+      FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+
+      TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
+      - name: Check selected channels
+        shell: bash
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ "$DISTRIBUTION_ENV" = "production" ] && [ "$RUN_FIREBASE" = "true" ]; then
+            echo "::notice::Firebase is disabled for production (production ships through TestFlight). Skipping Firebase."
+            RUN_FIREBASE=false
+            echo "RUN_FIREBASE=false" >> "$GITHUB_ENV"
+          fi
 
-      - name: Set up Ruby
+          # Firebase is usable as a fallback when the environment's app ID and credentials are set.
+          case "$DISTRIBUTION_ENV" in
+            development) FIREBASE_APP_ID="$FIREBASE_IOS_DEV_APP_ID" ;;
+            staging)     FIREBASE_APP_ID="$FIREBASE_IOS_STAGING_APP_ID" ;;
+            uat)         FIREBASE_APP_ID="$FIREBASE_IOS_UAT_APP_ID" ;;
+            *)           FIREBASE_APP_ID="" ;;
+          esac
+          FIREBASE_AVAILABLE=false
+          if [ -n "$FIREBASE_APP_ID" ] && { [ -n "$FIREBASE_SERVICE_ACCOUNT_JSON" ] || [ -n "$FIREBASE_TOKEN" ]; }; then
+            FIREBASE_AVAILABLE=true
+          fi
+          echo "FIREBASE_AVAILABLE=$FIREBASE_AVAILABLE" >> "$GITHUB_ENV"
+
+          if [ "$RUN_FIREBASE" != "true" ] && [ "$RUN_TESTFLIGHT" != "true" ]; then
+            if [ "$FIREBASE_AVAILABLE" = "true" ]; then
+              echo "::notice::No channel selected and TestFlight is off; falling back to Firebase App Distribution."
+              echo "RUN_FIREBASE=true" >> "$GITHUB_ENV"
+            else
+              echo "::error::No channel selected for $DISTRIBUTION_ENV. Enable Firebase and/or TestFlight."
+              exit 1
+            fi
+          fi
+
+      - name: Checkout merged commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ env.DISTRIBUTION_COMMIT }}
+          fetch-depth: 50
+
+      - name: Set up Ruby (version from .ruby-version)
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: "3.4"
           bundler-cache: true
 
       - name: Set up Node
         uses: actions/setup-node@v5
         with:
-          node-version: "20"
+          node-version: "22" # package.json engines: >= 22.11.0
           cache: npm
 
       - name: Install JavaScript dependencies
@@ -56,23 +153,75 @@ jobs:
         shell: bash
         run: |
           cd ios
-          pod install --repo-update
+          bundle exec pod install --repo-update
 
       - name: Write App Store Connect API key
         shell: bash
         env:
           APP_STORE_CONNECT_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_KEY_CONTENT }}
         run: |
+          if [ -z "$APP_STORE_CONNECT_KEY_CONTENT" ] || [ -z "$APP_STORE_CONNECT_KEY_ID" ] || [ -z "$APP_STORE_CONNECT_ISSUER_ID" ]; then
+            echo "::error::iOS builds on CI sign with the App Store Connect API key. Set APP_STORE_CONNECT_KEY_ID, APP_STORE_CONNECT_ISSUER_ID and APP_STORE_CONNECT_KEY_CONTENT (raw .p8) repository secrets."
+            exit 1
+          fi
           printf '%s' "$APP_STORE_CONNECT_KEY_CONTENT" > "$RUNNER_TEMP/AuthKey.p8"
+          echo "APP_STORE_CONNECT_KEY_FILE=$RUNNER_TEMP/AuthKey.p8" >> "$GITHUB_ENV"
+
+      - name: Write Firebase service account
+        if: env.RUN_FIREBASE == 'true' || env.FIREBASE_AVAILABLE == 'true'
+        shell: bash
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -n "$FIREBASE_SERVICE_ACCOUNT_JSON" ]; then
+            printf '%s' "$FIREBASE_SERVICE_ACCOUNT_JSON" > "$RUNNER_TEMP/firebase-service-account.json"
+            echo "FIREBASE_SERVICE_CREDENTIALS_FILE=$RUNNER_TEMP/firebase-service-account.json" >> "$GITHUB_ENV"
+          elif [ -z "$FIREBASE_TOKEN" ]; then
+            echo "::error::Set the FIREBASE_SERVICE_ACCOUNT_JSON or FIREBASE_TOKEN repository secret."
+            exit 1
+          fi
+
+      - name: Run summary
+        shell: bash
+        run: |
+          {
+            echo "### iOS distribution"
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Trigger | ${{ github.event_name == 'workflow_dispatch' && 'Manual run' || format('Merged PR #{0}', github.event.pull_request.number) }} |"
+            echo "| Environment | \`$DISTRIBUTION_ENV\` |"
+            echo "| Firebase | $RUN_FIREBASE |"
+            echo "| TestFlight | $RUN_TESTFLIGHT |"
+            echo "| Build number | ${{ github.run_number }} |"
+            echo "| Branch | \`$DISTRIBUTION_BRANCH\` |"
+            echo "| Commit | \`${DISTRIBUTION_COMMIT:0:7}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Validate Fastlane configuration
-        env:
-          APP_STORE_CONNECT_KEY_FILE: ${{ runner.temp }}/AuthKey.p8
-        run: |
-          bundle exec fastlane ios doctor environment:${{ inputs.environment }}
+        run: bundle exec fastlane ios doctor environment:${{ env.DISTRIBUTION_ENV }}
+
+      - name: Build and upload to Firebase App Distribution
+        if: env.RUN_FIREBASE == 'true'
+        run: bundle exec fastlane ios firebase environment:${{ env.DISTRIBUTION_ENV }}
 
       - name: Build and upload to TestFlight
-        env:
-          APP_STORE_CONNECT_KEY_FILE: ${{ runner.temp }}/AuthKey.p8
+        id: testflight
+        if: env.RUN_TESTFLIGHT == 'true'
+        # Not fatal when Firebase can take over (e.g. app not yet in App Store Connect).
+        continue-on-error: ${{ env.RUN_FIREBASE != 'true' && env.FIREBASE_AVAILABLE == 'true' }}
+        run: bundle exec fastlane ios distribute environment:${{ env.DISTRIBUTION_ENV }}
+
+      - name: TestFlight unavailable — fall back to Firebase App Distribution
+        if: steps.testflight.outcome == 'failure' && env.RUN_FIREBASE != 'true' && env.FIREBASE_AVAILABLE == 'true'
         run: |
-          bundle exec fastlane ios distribute environment:${{ inputs.environment }}
+          echo "::warning::TestFlight upload failed; distributing through Firebase App Distribution instead."
+          bundle exec fastlane ios firebase environment:${{ env.DISTRIBUTION_ENV }}
+
+      - name: Upload build artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-${{ env.DISTRIBUTION_ENV }}-${{ github.run_number }}
+          path: dist/ios/**/*.ipa
+          if-no-files-found: ignore
+          retention-days: 14

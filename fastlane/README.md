@@ -13,6 +13,41 @@ For _fastlane_ installation instructions, see [Installing _fastlane_](https://do
 
 # Available Actions
 
+### init_project
+
+```sh
+[bundle exec] fastlane init_project
+```
+
+Interactive one-time project setup: generates fastlane/config/environments.yml
+
+### setup
+
+```sh
+[bundle exec] fastlane setup
+```
+
+Interactive build setup: reuse a saved setup or create a new one, then run it
+
+### run_profile
+
+```sh
+[bundle exec] fastlane run_profile
+```
+
+Run a saved setup profile without prompts (CI friendly). Options: name:<profile> dry_run:true
+
+### profiles
+
+```sh
+[bundle exec] fastlane profiles
+```
+
+List saved setup profiles
+
+----
+
+
 ## Android
 
 ### android doctor
@@ -147,6 +182,16 @@ Build and upload the iOS application to TestFlight
 ```
 
 
+
+### ios firebase
+
+```sh
+[bundle exec] fastlane ios firebase
+```
+
+Build an Ad Hoc IPA and upload it to Firebase App Distribution
+
+Signs with the Apple ID signed in to Xcode; no App Store Connect API key needed
 
 ----
 
