@@ -15,7 +15,7 @@ const Intro = () => (
     </p>
     <ul>
       <li><strong>Android</strong> → Gradle build (APK or AAB) → <Ext href={L.appDistribution.href}>Firebase App Distribution</Ext>, plus the optional Firebase App Testing agent for AI-driven tests on real devices.</li>
-      <li><strong>iOS</strong> → Xcode archive (IPA) → <Ext href={L.testflight.href}>TestFlight</Ext> via App Store Connect.</li>
+      <li><strong>iOS</strong> → Xcode archive (IPA) → <Ext href={L.appDistribution.href}>Firebase App Distribution</Ext> (Ad Hoc) and/or <Ext href={L.testflight.href}>TestFlight</Ext> via App Store Connect.</li>
       <li><strong>Interactive CLI</strong>: <C>fastlane init_project</C> generates the configuration for a new project, and <C>fastlane setup</C> lets you pick the environment, flavor, APK/AAB and target for each run, then saves those choices as reusable profiles.</li>
       <li><strong>Reporting</strong>: Microsoft Teams Adaptive Cards, Slack and HTML e-mail reports for every run.</li>
     </ul>
@@ -32,7 +32,9 @@ const Intro = () => (
     <StatusTable head={["Platform", "", "Status"]} rows={[
       { label: "Android", cells: ["ok", "Verified end-to-end (build → upload → manual testers → AI tests → report)"] },
       { label: "Interactive setup", cells: ["ok", <>Verified on Windows: <C>init_project</C>, <C>setup</C>, <C>run_profile</C> and the CI guard</>] },
-      { label: "iOS", cells: ["warn", <>Implemented and reviewed, not yet run on a Mac. Follow the <DocLink to="ios/first-run">First run on a Mac</DocLink> checklist.</>] },
+      { label: "iOS → Firebase App Distribution", cells: ["ok", "Verified on a Mac (build → Ad Hoc signing → upload → testers)"] },
+      { label: "iOS → TestFlight", cells: ["warn", <>Set up (app record + API key); the first upload hasn't been verified yet. Follow the <DocLink to="ios/first-run">first-run checklist</DocLink>.</>] },
+      { label: "iOS on GitHub Actions", cells: ["warn", <>Workflow ready, not run yet (needs the iOS secrets). See <DocLink to="ci/github-actions">GitHub Actions</DocLink>.</>] },
     ]} />
 
     <H2>The 60-second tour</H2>
@@ -70,7 +72,7 @@ const Capabilities = () => (
       ["Build release artifact", <>APK / AAB via <Ext href={L.fastlaneGradle.href}>gradle</Ext></>, <>IPA via <Ext href={L.fastlaneBuildApp.href}>build_app (gym)</Ext></>],
       ["Multiple environments (development / staging / uat / production / custom)", Y, Y],
       ["Product flavors / custom Gradle tasks", Y, "Schemes"],
-      ["Distribute", "Firebase App Distribution (groups / e-mails)", <><Ext href={L.fastlaneTestflight.href}>upload_to_testflight</Ext> (internal / external groups)</>],
+      ["Distribute", "Firebase App Distribution (groups / e-mails)", <>Firebase App Distribution (Ad Hoc, groups / e-mails) and/or <Ext href={L.fastlaneTestflight.href}>upload_to_testflight</Ext> (internal / external groups)</>],
       ["AI tests on real devices", "Firebase App Testing agent", "–"],
       ["Automatic release notes", "git commits / text / file", "git commits / text / file"],
       ["Build-number handling", "–", <><C>BUILD_NUMBER</C> or latest TestFlight + 1</>],
@@ -120,7 +122,16 @@ $ bundle exec fastlane android distribute environment:staging
 + [14:10:13]: Fastlane completed successfully: distribute`} caption="A successful Android distribution (output shortened)." />
       </>}
       ios={<>
-        <p className="text-muted-foreground"><C>ios distribute</C></p>
+        <p className="text-muted-foreground"><C>ios firebase</C> (Ad Hoc)</p>
+        <Flow steps={[
+          "Validate config → production guard → Firebase enabled for this environment?",
+          <>Signing: automatic (<C>-allowProvisioningUpdates</C>; Apple ID in Xcode on a Mac, API key on CI) or match</>,
+          <>Build number: <C>BUILD_NUMBER</C> / <C>GITHUB_RUN_NUMBER</C> (otherwise the Xcode project value)</>,
+          <><Cmd>pod install</Cmd> → <C>build_app</C> (export method <C>ad-hoc</C>) → <C>dist/ios/&lt;env&gt;/…-firebase.ipa</C></>,
+          <><C>firebase_app_distribution</C> (groups / testers, release notes) → Teams notification</>,
+        ].map((label) => ({ label }))} />
+        <Callout type="caution">Ad Hoc builds install only on devices registered in the provisioning profile <strong>before</strong> the build. See <DocLink to="ios/firebase">Firebase App Distribution (Ad Hoc)</DocLink>.</Callout>
+        <p className="text-muted-foreground"><C>ios distribute</C> (TestFlight)</p>
         <Flow steps={[
           "Validate config → production guard → App Store Connect API key",
           <>Signing: automatic (<C>-allowProvisioningUpdates</C> + API key) or match (<C>sync_code_signing</C>)</>,
@@ -145,8 +156,8 @@ const FolderStructure = () => (
 ├── .env                          # local secrets (git-ignored)
 ├── .env.example                  # template of every variable the framework reads
 ├── .github/workflows/
-│   ├── android-distribution.yml  # manual "Run workflow" → Firebase
-│   └── ios-distribution.yml      # manual "Run workflow" → TestFlight
+│   ├── android-distribution.yml  # merged PR / "Run workflow" → Firebase
+│   └── ios-distribution.yml      # "Run workflow" (or merged PR) → Firebase (Ad Hoc) and/or TestFlight
 └── fastlane/
     ├── Fastfile                  # all lanes (generic – do not edit per project)
     ├── Appfile / Matchfile       # intentionally empty; identity comes from config
@@ -209,9 +220,10 @@ const Prereqs = () => (
     <ParamTable codeFirst={false} head={["Requirement", "Notes", "Official guide"]} rows={[
       ["macOS with Xcode and command-line tools", <>Install Xcode from the App Store, then run <Cmd>xcode-select --install</Cmd>.</>, <Ext href={L.xcode.href}>Xcode</Ext>],
       ["CocoaPods", <>It's installed through the Gemfile, and the framework runs <Cmd>pod install</Cmd> itself.</>, <Ext href={L.cocoapods.href}>CocoaPods guide</Ext>],
-      ["Apple Developer Program membership", "Required to sign and upload to TestFlight.", <Ext href={L.appleProgram.href}>Apple Developer Program</Ext>],
-      ["App record in App Store Connect", "Create the app with the same bundle identifier.", <Ext href={L.ascAddApp.href}>Add a new app</Ext>],
-      [<>App Store Connect API key (<C>.p8</C>, Key ID, Issuer ID)</>, "Used for signing, build numbers and upload, so no 2FA prompts.", <Ext href={L.ascApiKeys.href}>Creating API keys</Ext>],
+      ["Apple Developer Program membership", "Required to sign any distributable build (Ad Hoc or App Store).", <Ext href={L.appleProgram.href}>Apple Developer Program</Ext>],
+      ["Firebase iOS app + registered tester devices", <>Firebase channel only. Locally it signs with the Apple ID in Xcode, so no API key is needed.</>, <Ext href={L.firebaseIosSetup.href}>Add Firebase to Apple</Ext>],
+      ["App record in App Store Connect", "TestFlight only. Create the app with the same bundle identifier.", <Ext href={L.ascAddApp.href}>Add a new app</Ext>],
+      [<>App Store Connect API key (<C>.p8</C>, Key ID, Issuer ID)</>, "TestFlight, and both channels on CI. Used for signing, build numbers and upload, so no 2FA prompts.", <Ext href={L.ascApiKeys.href}>Creating API keys</Ext>],
     ]} />
     <ToolDownloads ids={["xcode", "homebrew", "cocoapods"]} />
     <ConsoleButtons ids={["appleAccount", "appStoreConnect", "ascApiKeys"]} />
@@ -317,7 +329,8 @@ const RnCompat = () => (
     <H3>What has actually been run</H3>
     <StatusTable head={["Setup", "", "Result"]} rows={[
       { label: "RN 0.87.1 · Android · Windows 11 + GitHub Actions", cells: ["ok", "Verified end-to-end: build → Firebase upload → testers → App Testing agent → Teams/e-mail"] },
-      { label: "RN 0.87.1 · iOS", cells: ["warn", <>Implemented and reviewed, not yet run on a Mac. See <DocLink to="ios/first-run">First run on a Mac</DocLink>.</>] },
+      { label: "RN 0.87.1 · iOS · Firebase (Ad Hoc) · macOS", cells: ["ok", "Verified: pod install → Ad Hoc archive → Firebase upload → testers → Teams"] },
+      { label: "RN 0.87.1 · iOS · TestFlight", cells: ["warn", <>Set up, first upload not verified yet. See <DocLink to="ios/first-run">First run on a Mac</DocLink>.</>] },
       { label: "Other rows of the matrix", cells: ["warn", <>Based on what the framework reads (next section) compared against each RN template generation, not test runs. Run <C>doctor</C> to confirm.</>] },
     ]} />
 

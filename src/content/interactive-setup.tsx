@@ -22,7 +22,7 @@ const SetupOverview = () => (
       "Platform: Android, iOS or both",
       "Environment: development, staging, uat, production or your own",
       "Android: flavor → build type → APK or AAB → Gradle task & output path",
-      "iOS: scheme → export method",
+      "iOS: scheme → (distribute) Firebase (Ad Hoc) or TestFlight; (build only) export method",
       "Action: build only, or build + distribute (Firebase / TestFlight)",
       "Testers, AI testing, release notes",
       "Summary → confirm → save as profile → doctor → build / distribute",
@@ -204,7 +204,8 @@ $ bundle exec fastlane setup
     <ul>
       <li><strong>Groups / testers</strong>: leave blank to use the values from <C>environments.yml</C> / <C>.env</C> (<Ext href={L.appDistTesters.href}>manage testers and groups</Ext>).</li>
       <li><strong>Release notes</strong>: <C>git</C> (last N commit subjects), <C>manual</C> (text you type now) or <C>file</C> (a path such as <C>fastlane/release_notes.txt</C>).</li>
-      <li>For iOS the wizard instead asks for the <strong>scheme</strong>, the <strong>export method</strong> and the <strong>TestFlight groups</strong>.</li>
+      <li>For iOS the wizard instead asks for the <strong>scheme</strong>. To distribute, it asks <strong>Distribute to: firebase / testflight</strong> when Firebase is enabled for that environment (otherwise TestFlight is used), then the Firebase groups and tester e-mails, or the TestFlight groups. It warns if the TestFlight API key is missing from <C>.env</C>. For a build-only run it asks for the <strong>export method</strong>.</li>
+      <li><C>init_project</C> asks, for each non-production iOS environment, whether to distribute via Firebase (Ad Hoc). It writes the <C>firebase</C> block with <C>FIREBASE_IOS_&lt;ENV&gt;_*</C> variables and adds them to <C>.env.example</C>.</li>
     </ul>
 
     <H2>Step 5: Review, save and run</H2>

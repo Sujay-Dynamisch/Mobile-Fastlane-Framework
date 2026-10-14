@@ -28,5 +28,5 @@ export function findPage(slug: string) {
   return { page: allPages[i]!, prev: allPages[i - 1] ?? null, next: allPages[i + 1] ?? null };
 }
 
-export const LAST_UPDATED = "2026-10-07";
+export const LAST_UPDATED = "2026-10-14";
 export const GITHUB_URL = "https://github.com/Sujay-Dynamisch/Mobile-Fastlane-Framework";
