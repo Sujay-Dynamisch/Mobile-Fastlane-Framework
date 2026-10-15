@@ -122,6 +122,8 @@ const AndroidFirebase = () => (
   <>
     <p>Connect your Android app to Firebase App Distribution so the framework can upload builds and notify testers. This page follows Google's guide <Ext href={L.appDistFastlane.href}>Distribute Android apps to testers using fastlane</Ext>.</p>
 
+    <Callout type="tip">need the project ID, app ID or service-account key? See <DocLink to="configure/firebase-values">Firebase values &amp; service account</DocLink> for every value with screenshots.</Callout>
+
     <H2>Step 1: Register the app in Firebase</H2>
     <ConsoleButtons ids={["firebase", "firebaseSettings"]} />
     <Steps>
@@ -456,6 +458,7 @@ const IosFirebase = () => (
   <>
     <p>The Firebase channel sends an <strong>Ad Hoc</strong> IPA to <Ext href={L.appDistribution.href}>Firebase App Distribution</Ext>. It's the quickest way to get iOS builds to testers: no App Store Connect app record and, on a Mac, no API key. This channel has been verified end-to-end.</p>
     <ConsoleButtons ids={["firebase", "firebaseSettings", "appDistribution", "appleAccount"]} />
+    <Callout type="tip">step-by-step help finding the iOS App ID, group alias and service-account key: <DocLink to="configure/firebase-values">Firebase values &amp; service account</DocLink>.</Callout>
     <Steps>
       <Step>In the Firebase console, <Ext href={L.firebaseIosSetup.href}>add an iOS app</Ext> with the exact bundle id. Download <C>GoogleService-Info.plist</C> into <C>ios/</C> and copy the iOS <strong>App ID</strong> (<C>1:123…:ios:abc…</C>).<FirebaseIosAppShot /></Step>
       <Step>In <strong>App Distribution → Testers &amp; Groups</strong>, create a group and note its <strong>alias</strong> (case-sensitive) (<Ext href={L.appDistTesters.href}>Firebase: testers and groups</Ext>).<FirebaseTestersShot /></Step>

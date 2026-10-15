@@ -152,6 +152,27 @@ export function ImageShot({ src, alt, caption, width }: { src: string; alt: stri
   );
 }
 
+/*
+ * Real console screenshots live in src/assets/screenshots/<name>. Drop a PNG with the
+ * expected name there and it appears; until then a labelled placeholder is shown.
+ */
+const REAL_SHOTS = import.meta.glob("/src/assets/screenshots/**/*.{png,jpg,jpeg,webp}", { eager: true, query: "?url", import: "default" }) as Record<string, string>;
+
+export function RealShot({ name, alt, caption, width }: { name: string; alt: string; caption?: ReactNode; width?: number | undefined }) {
+  const src = REAL_SHOTS[`/src/assets/screenshots/${name}`];
+  if (src) return <ImageShot src={src} alt={alt} caption={caption} {...(width ? { width } : {})} />;
+  return (
+    <figure className="no-prose my-5">
+      <div className="flex flex-col items-center justify-center gap-1 rounded-xl border border-dashed bg-surface-variant px-4 py-8 text-center" style={width ? { maxWidth: width } : undefined}>
+        <Icon name="image" className="text-[32px] text-muted-foreground" />
+        <span className="text-[13px] font-medium">Screenshot: {alt}</span>
+        <code className="text-[12px] text-muted-foreground">src/assets/screenshots/{name}</code>
+      </div>
+      {caption && <figcaption className="mt-2 text-[13px] text-muted-foreground">{caption}</figcaption>}
+    </figure>
+  );
+}
+
 /* ------------------------------- E-mail report ------------------------------- */
 
 /** The HTML e-mail built by email_notifier.rb#build_html_body. */

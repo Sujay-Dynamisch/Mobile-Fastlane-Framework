@@ -204,6 +204,7 @@ export const CONSOLES = {
   appDistribution: { name: "Firebase App Distribution", href: "https://console.firebase.google.com/project/_/appdistribution", icon: "cloud_upload" },
   gcpApis: { name: "Google Cloud API Library", href: "https://console.cloud.google.com/apis/library", icon: "api" },
   gcpServiceAccounts: { name: "Google Cloud service accounts", href: "https://console.cloud.google.com/iam-admin/serviceaccounts", icon: "manage_accounts" },
+  firebaseServiceAccounts: { name: "Firebase project settings → Service accounts", href: "https://console.firebase.google.com/project/_/settings/serviceaccounts/adminsdk", icon: "key" },
   appStoreConnect: { name: "App Store Connect", href: "https://appstoreconnect.apple.com/", icon: "storefront" },
   ascApiKeys: { name: "App Store Connect API keys", href: "https://appstoreconnect.apple.com/access/integrations/api", icon: "key" },
   appleAccount: { name: "Apple Developer account (Team ID)", href: "https://developer.apple.com/account", icon: "badge" },

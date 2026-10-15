@@ -55,6 +55,7 @@ export const L = {
   appDistRegisterDevices: { source: "Firebase", title: "Register additional iOS devices (export UDIDs)", href: "https://firebase.google.com/docs/app-distribution/register-additional-devices" },
   firebaseIosSetup: { source: "Firebase", title: "Add Firebase to your Apple project", href: "https://firebase.google.com/docs/ios/setup" },
   firebaseCli: { source: "Firebase", title: "Firebase CLI reference", href: "https://firebase.google.com/docs/cli" },
+  firebaseProjects: { source: "Firebase", title: "Understand Firebase projects (project ID, app ID)", href: "https://firebase.google.com/docs/projects/learn-more" },
   gcpServiceAccount: { source: "Google Cloud", title: "Create service accounts", href: "https://cloud.google.com/iam/docs/service-accounts-create" },
   gcpKeys: { source: "Google Cloud", title: "Create and delete service account keys", href: "https://cloud.google.com/iam/docs/keys-create-delete" },
   gcpEnableApis: { source: "Google Cloud", title: "Enable an API", href: "https://cloud.google.com/apis/docs/getting-started#enabling_apis" },
