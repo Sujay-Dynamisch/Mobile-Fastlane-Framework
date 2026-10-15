@@ -1,10 +1,10 @@
 import { useState, type ReactNode } from "react";
 import { ConsoleButtons, ToolDownloads } from "@/components/docs/downloads";
 import { Accordion, Callout, CodeBlock, DocLink, EnvVarTable, Ext, Icon, OfficialDocs, ParamTable, Ph, Steps, Step, Terminal, Cmd, ClaudePrompt, CopyButton } from "@/components/docs/ui";
-import { C, H2, type DocPage } from "./helpers";
+import { C, H2, H3, type DocPage } from "./helpers";
 import { L } from "./links";
 import { GithubRunIosWorkflowShot, GithubVariablesShot } from "@/components/docs/ios-mockups";
-import { EmailReportShot, ImageShot, Screenshot, SlackMessageShot, TeamsFailureCard, TeamsSuccessCard, TeamsTestReportCard } from "@/components/docs/mockups";
+import { EmailReportShot, ImageShot, RealShot, Screenshot, SlackMessageShot, TeamsFailureCard, TeamsSuccessCard, TeamsTestReportCard } from "@/components/docs/mockups";
 
 const EnvYml = () => (
   <>
@@ -147,7 +147,150 @@ $ git check-ignore .env
       ["SLACK_WEBHOOK_URL", "Slack webhook"],
       ["SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD, SMTP_FROM, TEST_ALERT_EMAIL_RECIPIENTS", "AI test report e-mail"],
     ]} />
+    <Callout type="tip" title="Where do the Firebase values come from?">see <DocLink to="configure/firebase-values">Firebase values: project ID, app IDs and service account</DocLink> for step-by-step instructions with console screenshots.</Callout>
     <OfficialDocs links={[L.fastlaneKeys, L.ghSecrets, L.firebaseCli, L.ascApiKeys]} />
+  </>
+);
+
+const FirebaseValues = () => (
+  <>
+    <p>Every Firebase value the framework needs, where to find it in the console, and which variable it goes in. Android and iOS share one Firebase project and one set of credentials. Only the app IDs differ.</p>
+    <ParamTable codeFirst={false} head={["Value", "Looks like", "Goes in", "Platform"]} rows={[
+      ["Project ID", <C>my-app-12345</C>, <><C>FIREBASE_STORAGE_BUCKET</C> (optional); must match <C>project_id</C> in the service-account JSON</>, "Both"],
+      ["Android App ID", <C>1:123456789012:android:a1b2c3…</C>, <C>FIREBASE_ANDROID_&lt;ENV&gt;_APP_ID</C>, "Android"],
+      ["iOS App ID", <C>1:123456789012:ios:d4e5f6…</C>, <C>FIREBASE_IOS_&lt;ENV&gt;_APP_ID</C>, "iOS"],
+      ["Tester group alias", <C>qa-team</C>, <><C>FIREBASE_ANDROID_&lt;ENV&gt;_GROUPS</C>, <C>FIREBASE_IOS_&lt;ENV&gt;_GROUPS</C></>, "Both"],
+      ["Service-account JSON key", <C>my-app-12345-1a2b3c4d5e6f.json</C>, <><C>FIREBASE_SERVICE_CREDENTIALS_FILE</C> (local), <C>FIREBASE_SERVICE_ACCOUNT_JSON</C> (CI)</>, "Both"],
+      ["CI token (alternative)", <C>1//0gXXXX…</C>, <><C>FIREBASE_TOKEN</C> (required for AI tests)</>, "Both"],
+    ]} />
+    <p><C>&lt;ENV&gt;</C> is <C>DEV</C>, <C>STAGING</C>, <C>UAT</C> or <C>PROD</C> (Android). iOS uses <C>DEV</C>, <C>STAGING</C> and <C>UAT</C>, because production never goes to Firebase. See <Ext href={L.firebaseProjects.href}>Firebase: understand projects</Ext> for how project IDs and app IDs relate.</p>
+
+    <H2>Step 1: Project ID and project number</H2>
+    <ConsoleButtons ids={["firebase", "firebaseSettings"]} />
+    <Steps>
+      <Step title="Open Project settings">In the <Ext href="https://console.firebase.google.com/">Firebase console</Ext>, select your project, then click the <strong>gear icon</strong> next to <em>Project Overview</em> → <strong>Project settings</strong>.</Step>
+      <Step title="Read the values on the General tab">
+        Under <strong>Your project</strong> you'll find the <strong>Project ID</strong> (e.g. <C>my-app-12345</C>) and the <strong>Project number</strong> (e.g. <C>123456789012</C>). The project number is the second part of every app ID, which lets you check that an app ID belongs to this project.
+        <RealShot name="firebase/01-project-settings-general.png" alt="Firebase Project settings, General tab, with Project ID and Project number highlighted" caption="Project settings → General → Your project." />
+      </Step>
+      <Step title="Optional: storage bucket">
+        If you set <C>FIREBASE_STORAGE_BUCKET</C>, use <C>&lt;project-id&gt;.appspot.com</C>. Projects created since late 2024 use <C>&lt;project-id&gt;.firebasestorage.app</C> instead. The exact name is shown in <strong>Storage</strong>.
+      </Step>
+    </Steps>
+
+    <H2>Step 2: Android App ID</H2>
+    <Steps>
+      <Step title="Find the Android app">Still in <strong>Project settings → General</strong>, scroll to <strong>Your apps</strong> and select the Android app whose <strong>package name</strong> matches the environment (for example <C>com.example.app.staging</C>). No Android app yet? Click <strong>Add app → Android</strong> (<DocLink to="android/firebase">Android → Set up Firebase</DocLink>).</Step>
+      <Step title="Copy the App ID">
+        Click the copy icon next to <strong>App ID</strong> (<C>1:123456789012:android:…</C>) and save it in <C>FIREBASE_ANDROID_&lt;ENV&gt;_APP_ID</C>. Repeat for each environment's package name.
+        <RealShot name="firebase/02-android-app-id.png" alt="Your apps section with an Android app selected; App ID and package name highlighted" caption="Each flavor with its own applicationIdSuffix is a separate app with its own App ID." />
+      </Step>
+      <Step title="Or read it from google-services.json">The same value is <C>client[].client_info.mobilesdk_app_id</C> in <C>android/app/google-services.json</C> (or <C>android/app/src/&lt;flavor&gt;/google-services.json</C>). Pick the <C>client</C> entry whose <C>package_name</C> matches.</Step>
+    </Steps>
+    <Terminal title="my-app — zsh" lines={`
+$ grep -B2 -A3 '"package_name": "com.example.app.staging"' android/app/google-services.json | grep -E 'mobilesdk_app_id|package_name'
+        "mobilesdk_app_id": "1:123456789012:android:a1b2c3d4e5f6a7b8",
+          "package_name": "com.example.app.staging"`} caption="Reading the Android App ID from google-services.json." />
+
+    <H2>Step 3: iOS App ID</H2>
+    <Steps>
+      <Step title="Find the Apple app">In <strong>Project settings → General → Your apps</strong>, select the iOS app whose <strong>bundle ID</strong> matches the environment (for example <C>com.example.app.staging</C>). No iOS app yet? Click <strong>Add app → iOS+</strong> (<DocLink to="ios/firebase">iOS → Firebase App Distribution</DocLink>).</Step>
+      <Step title="Copy the App ID">
+        Copy the <strong>App ID</strong> (<C>1:123456789012:ios:…</C>) into <C>FIREBASE_IOS_&lt;ENV&gt;_APP_ID</C>. Repeat for each bundle ID.
+        <RealShot name="firebase/03-ios-app-id.png" alt="Your apps section with an iOS app selected; App ID and Bundle ID highlighted" caption="iOS app: App ID and Bundle ID. Download GoogleService-Info.plist from the same card." />
+      </Step>
+      <Step title="Or read it from GoogleService-Info.plist">The same value is <C>GOOGLE_APP_ID</C> in <C>ios/&lt;App&gt;/GoogleService-Info.plist</C>.</Step>
+    </Steps>
+    <Terminal title="my-app — zsh" lines={`
+$ /usr/libexec/PlistBuddy -c "Print :GOOGLE_APP_ID" ios/MyApp/GoogleService-Info.plist
+1:123456789012:ios:d4e5f6a7b8c9d0e1
+$ /usr/libexec/PlistBuddy -c "Print :PROJECT_ID" ios/MyApp/GoogleService-Info.plist
+my-app-12345`} caption="On a Mac, PlistBuddy prints the iOS App ID and the project ID." />
+
+    <H2>Step 4: Tester group alias (Android and iOS)</H2>
+    <ConsoleButtons ids={["appDistribution"]} />
+    <Steps>
+      <Step title="Open Testers & Groups">In the Firebase console, open <strong>Run → App Distribution</strong> (shown as <strong>Release &amp; Monitor → App Distribution</strong> in some consoles), then the <strong>Testers &amp; Groups</strong> tab.</Step>
+      <Step title="Create or open a group">Click <strong>Add group</strong>, give it a name (e.g. <Ph>QA Team</Ph>) and add testers by e-mail. Groups are shared by every app in the project.</Step>
+      <Step title="Copy the alias">
+        The <strong>alias</strong> is shown under the group name (e.g. <C>qa-team</C>). Use the alias, not the display name, in <C>FIREBASE_ANDROID_&lt;ENV&gt;_GROUPS</C> and <C>FIREBASE_IOS_&lt;ENV&gt;_GROUPS</C>. Separate several aliases with commas. Aliases are case-sensitive.
+        <RealShot name="firebase/04-tester-group-alias.png" alt="App Distribution Testers & Groups tab with a group's alias highlighted" caption="Testers & Groups: the alias is the value under the group name." />
+      </Step>
+    </Steps>
+
+    <H2>Step 5: Service account and JSON key</H2>
+    <p>A service account lets the framework upload builds without a personal login. It is enough for uploads and distribution on both platforms. The App Testing agent (Android AI tests) rejects service accounts, so use <C>FIREBASE_TOKEN</C> for that (<DocLink to="android/firebase">Android → Set up Firebase, Step 3</DocLink>).</p>
+    <ConsoleButtons ids={["gcpServiceAccounts"]} />
+    <Steps>
+      <Step title="Open Service accounts in the Firebase project">
+        Go to <Ext href="https://console.cloud.google.com/iam-admin/serviceaccounts">Google Cloud console → IAM &amp; Admin → Service accounts</Ext>. In the project picker at the top, select the project whose ID matches your Firebase <strong>Project ID</strong> from Step 1. Every Firebase project is also a Google Cloud project.
+        <RealShot name="firebase/05-gcp-service-accounts.png" alt="Google Cloud Service accounts page with the project picker and Create service account button highlighted" caption="Check the project picker shows your Firebase project ID before you create anything." />
+      </Step>
+      <Step title="Create the service account">
+        Click <strong>+ Create service account</strong>. Enter a name such as <Ph>fastlane-distribution</Ph>. The ID and e-mail (<C>fastlane-distribution@my-app-12345.iam.gserviceaccount.com</C>) fill in automatically. Click <strong>Create and continue</strong>.
+        <RealShot name="firebase/06-create-service-account.png" alt="Create service account form with name, ID and Create and continue highlighted" />
+      </Step>
+      <Step title="Grant the role">
+        Under <strong>Permissions</strong>, open <strong>Select a role</strong>, search for <C>App Distribution</C> and pick <strong>Firebase App Distribution Admin</strong> (<C>roles/firebaseappdistro.admin</C>). Click <strong>Continue</strong>, then <strong>Done</strong>. You can skip <em>Principals with access</em>.
+        <RealShot name="firebase/07-grant-role.png" alt="Role picker filtered to App Distribution with Firebase App Distribution Admin highlighted" caption="This one role covers uploading releases and distributing to groups." />
+      </Step>
+      <Step title="Create a JSON key">
+        Open the new service account, go to the <strong>Keys</strong> tab and click <strong>Add key → Create new key</strong>. Select <strong>JSON</strong> and click <strong>Create</strong>. The browser downloads a file such as <C>my-app-12345-1a2b3c4d5e6f.json</C>. You can only download it once, so store it safely.
+        <RealShot name="firebase/08-keys-add-key.png" alt="Service account Keys tab with Add key, Create new key highlighted" />
+        <RealShot name="firebase/09-create-json-key.png" alt="Create private key dialog with JSON selected and Create highlighted" />
+      </Step>
+      <Step title="Check the key">
+        The file's <C>project_id</C> must equal your Firebase Project ID, and <C>client_email</C> is the service account you just created:
+        <CodeBlock language="json" filename="my-app-12345-1a2b3c4d5e6f.json (excerpt)" highlight={[3, 6]} code={`{
+  "type": "service_account",
+  "project_id": "my-app-12345",
+  "private_key_id": "1a2b3c4d5e6f…",
+  "private_key": "-----BEGIN PRIVATE KEY-----\\n…\\n-----END PRIVATE KEY-----\\n",
+  "client_email": "fastlane-distribution@my-app-12345.iam.gserviceaccount.com",
+  "client_id": "1098765432109876543210",
+  …
+}`} />
+      </Step>
+    </Steps>
+    <Callout type="caution" title="“Service account key creation is disabled”">your organization enforces the <C>iam.disableServiceAccountKeyCreation</C> policy. Ask an organization admin to allow keys for this project, or use <C>FIREBASE_TOKEN</C> instead.</Callout>
+    <Callout type="note">the Firebase console also offers <strong>Project settings → Service accounts → Generate new private key</strong>. That key belongs to the Admin SDK account, which has much broader permissions. Prefer the dedicated account above.</Callout>
+
+    <H2>Step 6: Store the key locally and on CI</H2>
+    <H3>Local runs (.env)</H3>
+    <p>Move the key to <C>fastlane/firebase-service-account.json</C> (git-ignored by the framework) or anywhere outside the repo, and confirm git ignores it:</p>
+    <Terminal title="my-app — zsh" lines={`
+$ mv ~/Downloads/my-app-12345-1a2b3c4d5e6f.json fastlane/firebase-service-account.json
+$ git check-ignore fastlane/firebase-service-account.json
+fastlane/firebase-service-account.json`} caption="git check-ignore prints the path when the file is ignored. No output means it would be committed." />
+    <H3>GitHub Actions</H3>
+    <p>Store the <strong>whole file content</strong> as the <C>FIREBASE_SERVICE_ACCOUNT_JSON</C> repository secret. The workflow writes it to a temporary file and sets <C>FIREBASE_SERVICE_CREDENTIALS_FILE</C> for you. Use <strong>Settings → Secrets and variables → Actions → New repository secret</strong>, or the GitHub CLI:</p>
+    <Terminal title="my-app — zsh" lines={`
+$ gh secret set FIREBASE_SERVICE_ACCOUNT_JSON < fastlane/firebase-service-account.json
++ ✓ Set Actions secret FIREBASE_SERVICE_ACCOUNT_JSON for my-org/my-app
+$ gh secret set FIREBASE_ANDROID_STAGING_APP_ID --body "1:123456789012:android:a1b2c3d4e5f6a7b8"
+$ gh secret set FIREBASE_IOS_STAGING_APP_ID --body "1:123456789012:ios:d4e5f6a7b8c9d0e1"`} />
+    <RealShot name="firebase/10-github-secret.png" alt="GitHub repository Actions secrets page with FIREBASE_SERVICE_ACCOUNT_JSON listed" caption="Settings → Secrets and variables → Actions." />
+
+    <H2>Step 7: Put it together</H2>
+    <CodeBlock language="bash" filename=".env" code={`# Shared credentials (one of these)
+FIREBASE_SERVICE_CREDENTIALS_FILE=/absolute/path/my-app/fastlane/firebase-service-account.json
+# FIREBASE_TOKEN=1//0g...                       # required instead for Android AI tests
+FIREBASE_STORAGE_BUCKET=my-app-12345.appspot.com # optional
+
+# Android (Step 2 + Step 4)
+FIREBASE_ANDROID_STAGING_APP_ID=1:123456789012:android:a1b2c3d4e5f6a7b8
+FIREBASE_ANDROID_STAGING_GROUPS=qa-team
+
+# iOS (Step 3 + Step 4)
+FIREBASE_IOS_STAGING_APP_ID=1:123456789012:ios:d4e5f6a7b8c9d0e1
+FIREBASE_IOS_STAGING_GROUPS=qa-team`} />
+    <Terminal title="my-app — zsh" lines={`
+$ bundle exec fastlane android doctor environment:staging
++ [09:31:34]: Android staging configuration is valid.
+$ bundle exec fastlane ios doctor environment:staging
++ [11:02:10]: Firebase: READY (export method: ad-hoc)
++ [11:02:10]: iOS staging configuration is valid.`} caption="The doctor lanes check the app ID, groups and credentials for each platform (output shortened)." />
+    <OfficialDocs links={[L.firebaseProjects, L.firebaseAndroidSetup, L.firebaseIosSetup, L.appDistTesters, L.gcpServiceAccount, L.gcpKeys, L.ghSecrets]} />
   </>
 );
 
@@ -591,6 +734,7 @@ export const configurePages: DocPage[] = [
   { slug: "configure/testing-yml", title: "testing.yml reference", description: "App Testing agent switches, devices and e-mail reports.", body: TestingYml },
   { slug: "configure/test-case-ids", title: "test_case_ids.yml", description: "Which Firebase test cases run after each upload.", body: TestCaseIds },
   { slug: "configure/env-vars", title: "Environment variables & secrets", description: "Every environment variable the framework reads.", body: EnvVars },
+  { slug: "configure/firebase-values", title: "Firebase values & service account", description: "Find the project ID, Android/iOS app IDs and group aliases, and create the service-account key.", body: FirebaseValues },
   { slug: "configure/release-notes", title: "Release notes, versioning, artifacts", description: "Release-note priority, version numbers and artifact naming.", body: ReleaseNotes },
   { slug: "configure/notifications", title: "Notifications (Teams & e-mail)", description: "Teams Adaptive Cards, Slack and AI test report e-mails.", body: Notifications },
   { slug: "configure/production-safety", title: "Production safety", description: "Branch rules, confirmation and CI-only execution for production.", body: ProdSafety },
