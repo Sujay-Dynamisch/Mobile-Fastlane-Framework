@@ -18,6 +18,6 @@ export type DocPage = {
   slug: string;
   title: string;
   description: string;
-  badge?: "preview" | "android" | "ios";
+  badge?: "preview" | "android" | "ios" | "new";
   body: ComponentType;
 };

@@ -283,15 +283,16 @@ export function EnvVarTable({ rows, showRequired = true }: { rows: [string, stri
 }
 
 /* ---------- Badge, Kbd, Placeholder ---------- */
-export function Badge({ variant, children }: { variant: "preview" | "android" | "ios" | "required" | "optional"; children?: ReactNode }) {
+export function Badge({ variant, children }: { variant: "preview" | "android" | "ios" | "new" | "required" | "optional"; children?: ReactNode }) {
   const cls = {
     preview: "border border-accent-strong text-accent-strong",
+    new: "bg-[#d97757] text-white",
     android: "bg-success-bg text-success-text",
     ios: "bg-primary-container text-primary",
     required: "bg-warning-bg text-warning-text",
     optional: "bg-surface-variant text-muted-foreground border",
   }[variant];
-  const label = children ?? { preview: "Preview", android: "Android", ios: "iOS", required: "Required", optional: "Optional" }[variant];
+  const label = children ?? { preview: "Preview", android: "Android", ios: "iOS", new: "New", required: "Required", optional: "Optional" }[variant];
   return <span className={cn("inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 align-middle font-sans text-[12px] font-medium", cls)}>{label}</span>;
 }
 export function Kbd({ children }: { children: ReactNode }) {

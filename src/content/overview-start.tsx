@@ -8,7 +8,7 @@ import { L } from "./links";
 const Intro = () => (
   <>
     <p>
-      The Mobile Fastlane Framework is a reusable, configuration-driven <Ext href={L.fastlaneDocs.href}>fastlane</Ext> setup.
+      The Fastlane Framework is a reusable, configuration-driven <Ext href={L.fastlaneDocs.href}>fastlane</Ext> setup.
       It builds, distributes and AI-tests React Native apps, as well as fully native Android and iOS apps. You drop the same{" "}
       <C>Fastfile</C> and <C>lib/</C> folder into every project. All project-specific details live in YAML and environment
       variables, so onboarding a new app never means editing Ruby.
@@ -55,6 +55,7 @@ $ bundle exec fastlane run_profile name:staging-aab`} caption="The three command
     <NextSteps cards={[
       { icon: "rocket_launch", title: "Prerequisites", desc: "What you need installed before you start.", to: "get-started/prerequisites" },
       { icon: "bolt", title: "Quickstart", desc: "Add the framework to an existing project.", to: "get-started/quickstart" },
+      { icon: "smart_toy", title: "Set up with Claude (new)", desc: "One command: /fastlane-setup does the setup and lists your manual steps.", to: "agent" },
     ]} />
     <OfficialDocs links={[L.fastlaneDocs, L.appDistribution, L.testflight]} />
   </>
@@ -99,10 +100,12 @@ const HowItWorks = () => (
         <Flow steps={[
           "Validate config → production guard → Gradle build → find APK/AAB → copy to dist/",
           "Release notes (file → text → git commits)",
-          { label: <strong className="font-medium">Are AI tests enabled AND groups/testers set?</strong>, branch: [
-            { title: "Yes", steps: ["Upload and distribute to manual testers without test options", <>Re-upload the same APK (Firebase reuses the release: <C>RELEASE_UNMODIFIED</C>), start AI tests and wait for results (blocking)</>] },
-            { title: "No", steps: ["Single upload (+ AI tests if enabled) + distribute"] },
-          ] },
+          {
+            label: <strong className="font-medium">Are AI tests enabled AND groups/testers set?</strong>, branch: [
+              { title: "Yes", steps: ["Upload and distribute to manual testers without test options", <>Re-upload the same APK (Firebase reuses the release: <C>RELEASE_UNMODIFIED</C>), start AI tests and wait for results (blocking)</>] },
+              { title: "No", steps: ["Single upload (+ AI tests if enabled) + distribute"] },
+            ]
+          },
           "AI test report e-mail (if enabled) → Teams App Testing Agent Report card → the lane fails if tests failed",
         ]} />
         <Callout type="note" title="Why two uploads?">the Firebase plugin only distributes to groups after AI tests pass. Splitting the call means manual testers always receive the build, while failing AI tests still fail the lane.</Callout>
@@ -291,9 +294,11 @@ const Downloads = () => (
     <H2>Check everything at once</H2>
     <PlatformTabs
       android={<CodeBlock tabs={[
-        { label: "Windows PowerShell", language: "powershell", code: `git --version; node --version; ruby --version; bundle --version
+        {
+          label: "Windows PowerShell", language: "powershell", code: `git --version; node --version; ruby --version; bundle --version
 java -version; adb --version; firebase --version` },
-        { label: "macOS / Linux", language: "bash", code: `git --version && node --version && ruby --version && bundle --version
+        {
+          label: "macOS / Linux", language: "bash", code: `git --version && node --version && ruby --version && bundle --version
 java -version && adb --version && firebase --version` },
       ]} />}
       ios={<CodeBlock language="bash" code={`git --version && node --version && ruby --version && bundle --version
@@ -573,7 +578,8 @@ const FastlaneDir = () => (
     <p>Create the <C>fastlane</C> directory and register the Firebase App Distribution plugin. The plugin provides the <C>firebase_app_distribution</C> action that the Android lanes call.</p>
     <H2>Step 1: Create the directory and Pluginfile</H2>
     <CodeBlock tabs={[
-      { label: "PowerShell", language: "powershell", code: `New-Item -ItemType Directory -Path fastlane
+      {
+        label: "PowerShell", language: "powershell", code: `New-Item -ItemType Directory -Path fastlane
 New-Item -ItemType File -Path fastlane\\Pluginfile` },
       { label: "macOS / Linux", language: "bash", code: "mkdir -p fastlane && touch fastlane/Pluginfile" },
     ]} />
@@ -690,14 +696,17 @@ const Quickstart = () => (
     <p>Copy the framework into an existing app, configure it and run your first distribution. Expect about 30 minutes for Android, most of it spent on Firebase setup.</p>
     <H2>Before you begin</H2>
     <p>Complete the <DocLink to="get-started/prerequisites">prerequisites</DocLink> and install Ruby and Bundler.</p>
+    <Callout type="tip" title="Prefer one command?">the <DocLink to="agent">fastlane-setup agent skill</DocLink> does steps 1–4 and 6 for you in Claude Code and finishes with a step-by-step list of the manual steps that are left.</Callout>
 
     <H2>Step 1: Copy the framework</H2>
     <p>From the project root:</p>
     <CodeBlock tabs={[
-      { label: "macOS / Linux", language: "bash", code: `git clone --depth 1 https://github.com/Sujay-Dynamisch/Mobile-Fastlane-Framework.git .fastlane-framework
+      {
+        label: "macOS / Linux", language: "bash", code: `git clone --depth 1 https://github.com/Sujay-Dynamisch/Mobile-Fastlane-Framework.git .fastlane-framework
 cp -R .fastlane-framework/{fastlane,.github,docs,.env.example,.ruby-version,Gemfile,Gemfile.lock} .
 rm -rf .fastlane-framework` },
-      { label: "PowerShell", language: "powershell", code: `git clone --depth 1 https://github.com/Sujay-Dynamisch/Mobile-Fastlane-Framework.git .fastlane-framework
+      {
+        label: "PowerShell", language: "powershell", code: `git clone --depth 1 https://github.com/Sujay-Dynamisch/Mobile-Fastlane-Framework.git .fastlane-framework
 "fastlane",".github","docs",".env.example",".ruby-version","Gemfile","Gemfile.lock" | ForEach-Object { Copy-Item ".fastlane-framework\\$_" . -Recurse -Force }
 Remove-Item .fastlane-framework -Recurse -Force` },
     ]} />

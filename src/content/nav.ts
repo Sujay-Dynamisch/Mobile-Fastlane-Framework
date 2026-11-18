@@ -3,12 +3,14 @@ import { overviewPages, startPages } from "./overview-start";
 import { androidPages, iosPages } from "./platforms";
 import { ciPages, configurePages, helpPages, referencePages } from "./configure-help";
 import { setupPages } from "./interactive-setup";
+import { agentPages } from "./agent-skills";
 
-export type NavSection = { id: string; label: string; icon: string; pages: DocPage[] };
+export type NavSection = { id: string; label: string; icon: string; pages: DocPage[]; tag?: "new" };
 
 export const sections: NavSection[] = [
   { id: "overview", label: "Overview", icon: "home", pages: overviewPages },
   { id: "get-started", label: "Get started", icon: "rocket_launch", pages: startPages },
+  { id: "agent", label: "Agent skills", icon: "smart_toy", pages: agentPages, tag: "new" },
   { id: "setup", label: "Interactive setup", icon: "terminal", pages: setupPages },
   { id: "android", label: "Android", icon: "android", pages: androidPages },
   { id: "ios", label: "iOS", icon: "apple", pages: iosPages },
@@ -28,5 +30,5 @@ export function findPage(slug: string) {
   return { page: allPages[i]!, prev: allPages[i - 1] ?? null, next: allPages[i + 1] ?? null };
 }
 
-export const LAST_UPDATED = "2026-10-14";
+export const LAST_UPDATED = "2026-11-18";
 export const GITHUB_URL = "https://github.com/Sujay-Dynamisch/Mobile-Fastlane-Framework";

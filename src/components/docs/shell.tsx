@@ -110,6 +110,7 @@ function NavGroup({ s, pathname }: { s: NavSection; pathname: string }) {
       <button onClick={() => setOpen(!open)} className={cn("flex w-full items-center gap-2 rounded-full px-3 py-2 text-left text-[14px] font-medium hover:bg-border/40", contains && "text-foreground")}>
         {s.icon === "apple" ? <IosIcon className="opacity-70" /> : <Icon name={s.icon} className="text-[20px] text-muted-foreground" />}
         <span className="flex-1">{s.label}</span>
+        {s.tag === "new" && <span className="rounded-full bg-[#d97757] px-1.5 text-[10px] font-medium text-white">New</span>}
         <Icon name={open ? "expand_less" : "expand_more"} className="text-muted-foreground" />
       </button>
       {open && (
@@ -122,6 +123,7 @@ function NavGroup({ s, pathname }: { s: NavSection; pathname: string }) {
                 <DocLink to={p.slug} className={cn("ml-4 flex items-center gap-2 rounded-full py-1.5 pl-7 pr-3 text-[14px]", isActive ? "bg-primary-container font-medium text-primary" : "text-muted-foreground hover:bg-border/40 hover:text-foreground")}>
                   <span className="flex-1">{p.title}</span>
                   {p.badge === "preview" && <span className="rounded-full border border-accent-strong px-1.5 text-[10px] font-medium text-accent-strong">Preview</span>}
+                  {p.badge === "new" && <span className="rounded-full bg-[#d97757] px-1.5 text-[10px] font-medium text-white">New</span>}
                 </DocLink>
               </li>
             );
